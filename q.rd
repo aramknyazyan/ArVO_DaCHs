@@ -94,6 +94,16 @@
                 res[re.sub("[^A-Za-z]+", "", key)] = value.strip()
               elif ln.startswith("## spectral"):
                 break
+            # we've read the data, going on to metadata
+            lam_max, lam_min = 0, 1e30
+            for ln in f:
+            	if f.strip():
+            		px, lam, flx = ln.split()
+            		lam = float(lam)
+            		lam_max = max(lam_max, lam)
+            		lam_min = min(lam_min, lam)
+            res["lam_max"] = lam_max*1e-9
+            res["lam_min"] = lam_min*1e-9
           yield res
         </code>
       </iterator>
