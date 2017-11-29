@@ -3,8 +3,6 @@
 * metadata from source images (dateObs!)
 * description, additional service parameters
 * coverage profile, creator
-* return min and max wavelength in main grammar
-* datalink: link to original text file
 * regression tests
 -->
 <resource schema="dfbs">
@@ -192,8 +190,10 @@
     </make>
   </data>
 
-  <service id="sdl" allowed="dlget,dlmeta">
+  <service id="sdl" allowed="dlget,dlmeta,static">
     <meta name="title">DFBS Datalink Service</meta>
+
+    <property name="staticData">data</property>
 
     <datalinkCore>
       <descriptorGenerator procDef="//soda#sdm_genDesc">
@@ -202,6 +202,15 @@
       <dataFunction procDef="//soda#sdm_genData">
         <bind name="builder">"\rdId#build_sdm_data"</bind>
       </dataFunction>
+      <metaMaker>
+      	<code>
+      		yield descriptor.makeLinkFromFile(
+      			os.path.join(base.getConfig("inputsDir"), descriptor.accref),
+      			description="Spectrum in original text format as provided by the"
+      				" extractor.",
+      			semantics="#progenitor")
+      	</code>
+      </metaMaker>
       <FEED source="//soda#sdm_plainfluxcalib"/>
       <FEED source="//soda#sdm_format"/>
     </datalinkCore>
