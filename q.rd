@@ -3,7 +3,6 @@
 * metadata from source images (dateObs!)
 * description, additional service parameters
 * coverage profile, creator
-* regression tests
 -->
 <resource schema="dfbs">
   <meta name="title">Digitized First Byurakan Survey (DFBS)</meta>
@@ -222,10 +221,10 @@
       <condDesc buildFrom="ssa_location"/>
       <condDesc buildFrom="magb"/>
     </dbCore>
-    <outputTable autoCols="accref,accsize,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>
+    <outputTable autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>
   </service>
 
-  <service id="ssa" allowed="ssap.xml">
+  <service id="ssa" allowed="ssap.xml,form">
     <meta name="shortName">DFBS SSAP</meta>
     <meta name="ssap.dataSource">pointed</meta>
     <meta name="ssap.testQuery">MAXREC=1</meta>
@@ -236,4 +235,50 @@
       <FEED source="//ssap#hcd_condDescs"/>
     </ssapCore>
   </service>
+
+	<regSuite title="DFBS regression">
+		<regTest title="Spectra metadata plausible via SSA">
+			<url REQUEST="queryData" POS="322.932108332,-12.7728472233"  
+				SIZE="0.001">ssa/ssap.xml</url>
+			<code>
+				row = self.getFirstVOTableRow()
+				self.assertAlmostEqual(row['ssa_location'].asSODA(),	
+					"322.932108332 -12.7728472233")
+				self.assertTrue(row["dlurl"].endswith("/dfbs/q/sdl/dlmeta?"
+					"ID=ivo%3A//org.gavo.dc/%7E%3Fdfbs/data/tmpdata/"
+					"fbs1053-DFBSJ213143.70-124622.2.spec"))
+				self.assertEqual(row["ssa_dstitle"], 
+					'DFBS spectrum DFBSJ213143.70-124622.2')
+			</code>
+		</regTest>
+
+		<regTest title="DFBS previews present">
+			<url>/getproduct/dfbs/data/tmpdata/fbs1053-DFBSJ213148.47-125004.7.spec?preview=True</url>
+			<code>
+				self.assertHasStrings("PNG", "IDATx")
+			</code>
+		</regTest>
+
+		<regTest title="DFBS datalink meta has progenitor link">
+			<url ID="ivo://org.gavo.dc/~?dfbs/data/tmpdata/fbs1053-DFBSJ213143.70-124622.2.spec">sdl/dlmeta</url>
+			<code>
+				rows = self.getVOTableRows()
+				for row in rows:
+					if row["semantics"]=="#progenitor":
+						self.assertTrue(row["access_url"].endswith(
+							"/dfbs/q/sdl/static/tmpdata/fbs1053-DFBSJ213143.70-124622.2.spec"),
+							"Progenitor link in datalink access_url column not in expected"
+							" form")
+			</code>
+		</regTest>
+
+		<regTest title="Datalink dataset generation works">
+			<url ID="ivo://org.gavo.dc/~?dfbs/data/tmpdata/fbs1053-DFBSJ213143.70-124622.2.spec">sdl/dlget</url>
+			<code>
+				self.assertHasStrings('utype="spec:Spectrum"', 'name="citation"',
+					'value="UNCALIBRATED"')
+				self.assertEqual(self.getFirstVOTableRow()["spectral"], 1038.0)
+			</code>
+		</regTest>
+	</regSuite>
 </resource>
