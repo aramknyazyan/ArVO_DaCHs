@@ -77,7 +77,7 @@
 
   <data id="import">
     <property key="previewDir">previews</property>
-    <sources pattern="data/*.spec"/>
+    <sources pattern="data/*.spec" recurse="True"/>
     <embeddedGrammar>
       <iterator>
         <setup>
@@ -88,16 +88,16 @@
         <code>
           res = {}
           with open(self.sourceToken) as f:
-            for ln in f:
-              if ln.startswith("# "):
-                key, value = ln[1:].strip().split(":", 1)
-                res[re.sub("[^A-Za-z]+", "", key)] = value.strip()
-              elif ln.startswith("## spectral"):
-                break
-            # we've read the data, going on to metadata
             lam_max, lam_min = 0, 1e30
             for ln in f:
-            	if f.strip():
+              if ln.startswith("# "):
+              	if not ":" in ln:
+              		continue
+                key, value = ln[1:].strip().split(":", 1)
+                res[re.sub("[^A-Za-z]+", "", key)] = value.strip()
+              elif ln.startswith("##"):
+              	pass
+              else:
             		px, lam, flx = ln.split()
             		lam = float(lam)
             		lam_max = max(lam_max, lam)
