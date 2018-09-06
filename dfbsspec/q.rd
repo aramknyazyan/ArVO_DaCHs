@@ -47,13 +47,59 @@
     <meta name="waveband">Optical</meta>
   </meta>
 
-  <table id="data" onDisk="true">
-    <mixin
-      fluxUnit=" "
-      fluxUCD="phot.flux.density"
-      spectralUnit="nm">//ssap#mixc</mixin>
-    <mixin>//ssap#simpleCoverage</mixin>
-    <mixin>//obscore#publishSSAPMIXC</mixin>
+  <table id="specmeta" onDisk="true" adql="hidden" mixin="//products#table">
+    <meta name="description">
+      Raw metadata for the spectra, to be combined with image
+      metadata like date_obs and friends.
+    </meta>
+
+    <primary>object</primary>
+    <index columns="plate"/>
+
+    <column name="plate" type="text"
+      ucd=""
+      tablehead="Src. Plate"
+      description="Number of the plate this spectrum was extracted
+        from.  Technically, this is a foreign key into dfbs.plates."
+      verbLevel="1"/>
+    <column name="object" type="text"
+      ucd="meta.id;meta.main"
+      tablehead="Obj."
+      description="Synthetic object id assigned by DFBS."
+      verbLevel="1"/>
+    <column name="ra" type="double precision"
+      unit="deg" ucd="pos.eq.ra;meta.main"
+      tablehead="RA"
+      description="ICRS RA of the source of this spectrum."
+      verbLevel="1"/>
+    <column name="dec" type="double precision"
+      unit="deg" ucd="pos.eq.dec;meta.main"
+      tablehead="Dec"
+      description="ICRS Dec of the source of this spectrum."
+      verbLevel="1"/>
+
+    <column name="sp_class" type="text"
+      ucd="meta.code.qual"
+      tablehead="Sp. Class"
+      description="TODO"
+      verbLevel="25"/>
+    <column name="px_length" 
+      unit="px" ucd=""
+      tablehead="#px"
+      description="Number of pixels in the extracted spectrum"
+      verbLevel="25"/>
+
+    <column name="wls" type="real[]"
+      unit="nm" ucd=""
+      tablehead="Spectral[]"
+      description="Spectral points of the extracted spectrum (wavelengths) as an
+        array"
+      verbLevel="30"/>
+    <column name="intensity" type="real[]"
+      unit="" ucd=""
+      tablehead="Flux[]"
+      description="Flux points of the extracted spectrum (arbitrary units)"
+      verbLevel="30"/>
 
     <column name="magb" 
       unit="mag" ucd="phot.mag;em.opt.B"
@@ -69,6 +115,18 @@
       tablehead="Datalink URI"
       description="Datalink (more formats, more access options) URL"
       displayHint="type=url"/>
+  </table>
+
+  <table id="data" onDisk="true" namePath="specmeta">
+    <mixin
+      fluxUnit=" "
+      fluxUCD="phot.flux.density"
+      spectralUnit="nm">//ssap#mixc</mixin>
+    <mixin>//ssap#simpleCoverage</mixin>
+    <mixin>//obscore#publishSSAPMIXC</mixin>
+    
+    <column original="magb"/>
+    <column original="magr"/>
   </table>
 
   <coverage>
@@ -94,17 +152,17 @@
             lam_max, lam_min = 0, 1e30
             for ln in f:
               if ln.startswith("# "):
-              	if not ":" in ln:
-              		continue
+                if not ":" in ln:
+                  continue
                 key, value = ln[1:].strip().split(":", 1)
                 res[re.sub("[^A-Za-z]+", "", key)] = value.strip()
               elif ln.startswith("##"):
-              	pass
+                pass
               else:
-            		px, lam, flx = ln.split()
-            		lam = float(lam)
-            		lam_max = max(lam_max, lam)
-            		lam_min = min(lam_min, lam)
+                px, lam, flx = ln.split()
+                lam = float(lam)
+                lam_max = max(lam_max, lam)
+                lam_min = min(lam_min, lam)
             res["lam_max"] = lam_max*1e-9
             res["lam_min"] = lam_min*1e-9
           yield res
@@ -119,6 +177,7 @@
         <bind name="mime">"application/x-votable+xml"</bind>
         <bind name="preview_mime">"image/png"</bind>
         <bind name="preview">\standardPreviewPath</bind>
+        <bind name="fsize">5*\inputSize</bind>
       </rowfilter>
     </embeddedGrammar>
 
@@ -152,6 +211,7 @@
           <bind name="dataSource">"survey"</bind>
           <bind name="fluxCalib">"UNCALIBRATED"</bind>
           <bind name="specCalib">"ABSOLUTE"</bind>
+          <bind name="creationType">"archival"</bind>
         </apply>
  
         <map key="dlurl">\dlMetaURI{sdl}</map>
@@ -209,13 +269,13 @@
         <bind name="builder">"\rdId#build_sdm_data"</bind>
       </dataFunction>
       <metaMaker>
-      	<code>
-      		yield descriptor.makeLinkFromFile(
-      			os.path.join(base.getConfig("inputsDir"), descriptor.accref),
-      			description="Spectrum in original text format as provided by the"
-      				" extractor.",
-      			semantics="#progenitor")
-      	</code>
+        <code>
+          yield descriptor.makeLinkFromFile(
+            os.path.join(base.getConfig("inputsDir"), descriptor.accref),
+            description="Spectrum in original text format as provided by the"
+              " extractor.",
+            semantics="#progenitor")
+        </code>
       </metaMaker>
       <FEED source="//soda#sdm_plainfluxcalib"/>
       <FEED source="//soda#sdm_format"/>
@@ -243,49 +303,52 @@
     </ssapCore>
   </service>
 
-	<regSuite title="DFBS regression">
-		<regTest title="Spectra metadata plausible via SSA">
-			<url REQUEST="queryData" POS="322.932108332,-12.7728472233"  
-				SIZE="0.001">ssa/ssap.xml</url>
-			<code>
-				row = self.getFirstVOTableRow()
-				self.assertAlmostEqual(row['ssa_location'].asSODA(),	
-					"322.932108332 -12.7728472233")
-				self.assertTrue(row["dlurl"].endswith("/dfbs/q/sdl/dlmeta?"
-					"ID=ivo%3A//org.gavo.dc/%7E%3Fdfbs/data/tmpdata/"
-					"fbs1053-DFBSJ213143.70-124622.2.spec"))
-				self.assertEqual(row["ssa_dstitle"], 
-					'DFBS spectrum DFBSJ213143.70-124622.2')
-			</code>
-		</regTest>
+  <regSuite title="DFBS regression">
+    <regTest title="Spectra metadata plausible via SSA">
+      <url REQUEST="queryData" POS="322.932108332,-12.7728472233"  
+        SIZE="0.001">ssa/ssap.xml</url>
+      <code>
+        row = self.getFirstVOTableRow()
+        self.assertAlmostEqual(row['ssa_location'].asSODA(),	
+          "322.932108332 -12.7728472233")
+        self.assertTrue(row["dlurl"].endswith("/dfbs/q/sdl/dlmeta?"
+          "ID=ivo%3A//org.gavo.dc/%7E%3Fdfbs/data/tmpdata/"
+          "fbs1053-DFBSJ213143.70-124622.2.spec"))
+        self.assertEqual(row["ssa_dstitle"], 
+          'DFBS spectrum DFBSJ213143.70-124622.2')
+      </code>
+    </regTest>
 
-		<regTest title="DFBS previews present">
-			<url>/getproduct/dfbs/data/tmpdata/fbs1053-DFBSJ213148.47-125004.7.spec?preview=True</url>
-			<code>
-				self.assertHasStrings("PNG", "IDATx")
-			</code>
-		</regTest>
+    <regTest title="DFBS previews present">
+      <url>/getproduct/dfbs/data/tmpdata/fbs1053-DFBSJ213148.47-125004.7.spec?preview=True</url>
+      <code>
+        self.assertHasStrings("PNG", "IDATx")
+      </code>
+    </regTest>
 
-		<regTest title="DFBS datalink meta has progenitor link">
-			<url ID="ivo://org.gavo.dc/~?dfbs/data/tmpdata/fbs1053-DFBSJ213143.70-124622.2.spec">sdl/dlmeta</url>
-			<code>
-				rows = self.getVOTableRows()
-				for row in rows:
-					if row["semantics"]=="#progenitor":
-						self.assertTrue(row["access_url"].endswith(
-							"/dfbs/q/sdl/static/tmpdata/fbs1053-DFBSJ213143.70-124622.2.spec"),
-							"Progenitor link in datalink access_url column not in expected"
-							" form")
-			</code>
-		</regTest>
+    <regTest title="DFBS datalink meta has progenitor link">
+      <url ID="ivo://org.gavo.dc/~?dfbs/data/tmpdata/fbs1053-DFBSJ213143.70-124622.2.spec">sdl/dlmeta</url>
+      <code>
+        rows = self.getVOTableRows()
+        for row in rows:
+          if row["semantics"]=="#progenitor":
+            self.assertTrue(row["access_url"].endswith(
+              "/dfbs/q/sdl/static/tmpdata/fbs1053-DFBSJ213143.70-124622.2.spec"),
+              "Progenitor link in datalink access_url column not in expected"
+              " form")
+      </code>
+    </regTest>
 
-		<regTest title="Datalink dataset generation works">
-			<url ID="ivo://org.gavo.dc/~?dfbs/data/tmpdata/fbs1053-DFBSJ213143.70-124622.2.spec">sdl/dlget</url>
-			<code>
-				self.assertHasStrings('utype="spec:Spectrum"', 'name="citation"',
-					'value="UNCALIBRATED"')
-				self.assertEqual(self.getFirstVOTableRow()["spectral"], 1038.0)
-			</code>
-		</regTest>
-	</regSuite>
+    <regTest title="Datalink dataset generation works">
+      <url ID="ivo://org.gavo.dc/~?dfbs/data/tmpdata/fbs1053-DFBSJ213143.70-124622.2.spec">sdl/dlget</url>
+      <code>
+        self.assertHasStrings('utype="spec:Spectrum"', 'name="citation"',
+          'value="UNCALIBRATED"')
+        self.assertEqual(self.getFirstVOTableRow()["spectral"], 1038.0)
+      </code>
+    </regTest>
+  </regSuite>
 </resource>
+
+<!-- vi:et:sta:sw=2
+-->

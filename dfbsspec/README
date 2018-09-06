@@ -6,5 +6,19 @@ web service.
 
 The test data assumed can be obtained by
 
-scp arvo-registry.sci.am:/var/gavo/inputs/dfbs_spec/data/DFBS_ALL_10/fbs1163-DFBSJ01561\* data/
+scp arvo-registry.sci.am:/var/gavo/inputs/dfbs_spec/data/fbs1163-DFBSJ01561\* data/
 
+Questions to Areg:
+
+* What to put in as creation date for the files?  [version indicator]
+* What to use for bandpass id ("blue"? "visual"?)
+* target class: anyone working on providing one?
+* are stat and sys errors known?
+* what other values are possible for spectrum class?
+* What's spectrum length?  Pixels in files or pixels on plate?
+* Red bord position?
+
+
+Work out how to figure out:
+
+* dateObs, timeExt, spec*
