@@ -50,10 +50,12 @@
   <table id="specmeta" onDisk="true" adql="hidden" mixin="//products#table">
     <meta name="description">
       Raw metadata for the spectra, to be combined with image
-      metadata like date_obs and friends.
+      metadata like date_obs and friends for a complete spectrum
+      descriptions.  This also contains spectral and flux points
+      in array-valued columns.
     </meta>
 
-    <primary>object</primary>
+    <primary>objectid</primary>
     <index columns="plate"/>
 
     <column name="plate" type="text"
@@ -62,7 +64,7 @@
       description="Number of the plate this spectrum was extracted
         from.  Technically, this is a foreign key into dfbs.plates."
       verbLevel="1"/>
-    <column name="object" type="text"
+    <column name="objectid" type="text"
       ucd="meta.id;meta.main"
       tablehead="Obj."
       description="Synthetic object id assigned by DFBS."
@@ -77,6 +79,11 @@
       tablehead="Dec"
       description="ICRS Dec of the source of this spectrum."
       verbLevel="1"/>
+    <column name="pos" type="spoint"
+      ucd="pos.eq"
+      tablehead="Pos"
+      description="The object position as s pgsphere spoint."
+      verbLevel="30"/>
 
     <column name="sp_class" type="text"
       ucd="meta.code.qual"
@@ -89,13 +96,13 @@
       description="Number of pixels in the extracted spectrum"
       verbLevel="25"/>
 
-    <column name="wls" type="real[]"
+    <column name="spectral" type="real[]"
       unit="nm" ucd=""
       tablehead="Spectral[]"
       description="Spectral points of the extracted spectrum (wavelengths) as an
         array"
       verbLevel="30"/>
-    <column name="intensity" type="real[]"
+    <column name="flux" type="real[]"
       unit="" ucd=""
       tablehead="Flux[]"
       description="Flux points of the extracted spectrum (arbitrary units)"
@@ -115,9 +122,109 @@
       tablehead="Datalink URI"
       description="Datalink (more formats, more access options) URL"
       displayHint="type=url"/>
+    
+    <column name="snr"
+      unit="" ucd=""
+      tablehead="SNR"
+      description="Estimated signal-to-noise ratio for this spectrum."
+      verbLevel="25"/>
+    <column name="lam_min"
+      unit="m" ucd=""
+      tablehead="λ_min"
+      description="Minimal wavelength in this spectrum."
+      verbLevel="15"/>
+    <column name="lam_max"
+      unit="m" ucd=""
+      tablehead="λ_max"
+      description="Maximal wavelength in this spectrum."
+      verbLevel="15"/>
   </table>
 
+  <data id="import">
+    <property key="previewDir">previews</property>
+    <sources pattern="data/*.spec" recurse="True"/>
+    <embeddedGrammar>
+      <iterator>
+        <setup>
+          <code>
+            import re
+            import numpy
+          </code>
+        </setup>
+        <code>
+          res = {}
+          with open(self.sourceToken) as f:
+            lam_max, lam_min = 0, 1e30
+            spectral, flux = [], []
+            for ln in f:
+              if ln.startswith("# "):
+                if not ":" in ln:
+                  continue
+                key, value = ln[1:].strip().split(":", 1)
+                res[re.sub("[^A-Za-z]+", "", key)] = value.strip()
+              elif ln.startswith("##"):
+                pass
+              else:
+                px, lam, flx = ln.split()
+                lam = float(lam)*1e-9
+                lam_max = max(lam_max, lam)
+                lam_min = min(lam_min, lam)
+                flux.append(float(flx))
+                spectral.append(lam)
+
+            res["lam_max"] = lam_max
+            res["lam_min"] = lam_min
+            res["flux"] = numpy.array(flux)
+            res["spectral"] = numpy.array(spectral)
+          yield res
+        </code>
+      </iterator>
+
+      <rowfilter procDef="//products#define">
+        <bind name="table">"\schema.data"</bind>
+        <bind key="accref">\inputRelativePath{True}</bind>
+        <bind name="path">makeAbsoluteURL(
+          "\rdId/sdl/dlget?ID="+urllib.quote(
+            getStandardPubDID(\inputRelativePath{True})))</bind>
+        <bind name="mime">"application/x-votable+xml"</bind>
+        <bind name="preview_mime">"image/png"</bind>
+        <bind name="preview">\standardPreviewPath</bind>
+        <bind name="fsize">5*\inputSize</bind>
+      </rowfilter>
+    </embeddedGrammar>
+
+    <make table="specmeta">
+      <rowmaker idmaps="*">
+        <simplemaps>
+          sp_class: spectrumclass,
+          magb: magB,
+          magr: magR
+        </simplemaps>
+
+        <var key="ra">hmsToDeg(@raJ, ":")</var>
+        <var key="dec">hmsToDeg(@decJ, ":")</var>
+        <map key="px_length">float(@spectrumlength.split(" ")[0])</map>
+        <map key="px_length">float(@spectrumlength.split(" ")[0])</map>
+        <map key="pos">pgsphere.SPoint.fromDegrees(@ra, @dec)</map>
+
+        <apply name="compute_snr">
+          <code>
+            mag = float(@magB)
+            if mag>16:
+              @snr = 3
+            elif mag>14:
+              @snr = 5
+            else:
+              @snr = 100
+          </code>
+        </apply>
+      </rowmaker>
+    </make>
+  </data>
+
   <table id="data" onDisk="true" namePath="specmeta">
+    <meta name="description">A view providing standard SSA metadata for
+      DBFS metadata in \schema.specmeta</meta>
     <mixin
       fluxUnit=" "
       fluxUCD="phot.flux.density"
@@ -136,65 +243,10 @@
     <spectral/>
   </coverage>
 
-  <data id="import">
+  <data id="make_view" auto="False">
     <property key="previewDir">previews</property>
-    <sources pattern="data/*.spec" recurse="True"/>
-    <embeddedGrammar>
-      <iterator>
-        <setup>
-          <code>
-            import re
-          </code>
-        </setup>
-        <code>
-          res = {}
-          with open(self.sourceToken) as f:
-            lam_max, lam_min = 0, 1e30
-            for ln in f:
-              if ln.startswith("# "):
-                if not ":" in ln:
-                  continue
-                key, value = ln[1:].strip().split(":", 1)
-                res[re.sub("[^A-Za-z]+", "", key)] = value.strip()
-              elif ln.startswith("##"):
-                pass
-              else:
-                px, lam, flx = ln.split()
-                lam = float(lam)
-                lam_max = max(lam_max, lam)
-                lam_min = min(lam_min, lam)
-            res["lam_max"] = lam_max*1e-9
-            res["lam_min"] = lam_min*1e-9
-          yield res
-        </code>
-      </iterator>
-      <rowfilter procDef="//products#define">
-        <bind name="table">"\schema.data"</bind>
-        <bind key="accref">\inputRelativePath{True}</bind>
-        <bind name="path">makeAbsoluteURL(
-          "\rdId/sdl/dlget?ID="+urllib.quote(
-            getStandardPubDID(\inputRelativePath{True})))</bind>
-        <bind name="mime">"application/x-votable+xml"</bind>
-        <bind name="preview_mime">"image/png"</bind>
-        <bind name="preview">\standardPreviewPath</bind>
-        <bind name="fsize">5*\inputSize</bind>
-      </rowfilter>
-    </embeddedGrammar>
-
     <make table="data">
       <rowmaker idmaps="ssa_*">
-        <apply name="compute_snr">
-          <code>
-            mag = float(@magB)
-            if mag>16:
-              @snr = 3
-            elif mag>14:
-              @snr = 5
-            else:
-              @snr = 100
-          </code>
-        </apply>
-
         <apply procDef="//ssap#setMeta">
           <bind name="alpha">hmsToDeg(@raJ, ":")</bind>
           <bind name="aperture">2/3600.</bind>
@@ -213,10 +265,6 @@
           <bind name="specCalib">"ABSOLUTE"</bind>
           <bind name="creationType">"archival"</bind>
         </apply>
- 
-        <map key="dlurl">\dlMetaURI{sdl}</map>
-        <map key="magb">@magB</map>
-        <map key="magr">@magR</map>
       </rowmaker>
     </make>
   </data>
@@ -288,7 +336,8 @@
       <condDesc buildFrom="ssa_location"/>
       <condDesc buildFrom="magb"/>
     </dbCore>
-    <outputTable autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>
+<!--    <outputTable
+autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>-->
   </service>
 
   <service id="ssa" allowed="ssap.xml,form">
