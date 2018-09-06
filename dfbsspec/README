@@ -1,0 +1,10 @@
+This is a service publishing the spectra from the first Byurakan
+spectral survey.
+
+We got the data from Daniel, who in turn got it from the old Italian
+web service.
+
+The test data assumed can be obtained by
+
+scp arvo-registry.sci.am:/var/gavo/inputs/dfbs_spec/data/DFBS_ALL_10/fbs1163-DFBSJ01561\* .
+
