@@ -6,5 +6,5 @@ web service.
 
 The test data assumed can be obtained by
 
-scp arvo-registry.sci.am:/var/gavo/inputs/dfbs_spec/data/DFBS_ALL_10/fbs1163-DFBSJ01561\* .
+scp arvo-registry.sci.am:/var/gavo/inputs/dfbs_spec/data/DFBS_ALL_10/fbs1163-DFBSJ01561\* data/
 

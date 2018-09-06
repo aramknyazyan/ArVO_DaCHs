@@ -4,7 +4,7 @@
 * description, additional service parameters
 * coverage profile, creator
 -->
-<resource schema="dfbs">
+<resource schema="dfbsspec">
   <meta name="title">Digitized First Byurakan Survey (DFBS)</meta>
   <meta name="description" format="rst">
     First Byurakan Survey (FBS) is the largest and the first systematic
@@ -45,7 +45,6 @@
 
   <meta name="coverage">
     <meta name="waveband">Optical</meta>
-    <meta name="profile">AllSky ICRS</meta>
   </meta>
 
   <table id="data" onDisk="true">
@@ -71,6 +70,13 @@
       description="Datalink (more formats, more access options) URL"
       displayHint="type=url"/>
   </table>
+
+  <coverage>
+    <updater sourceTable="data"/>
+    <spatial>6/666-667,689</spatial>
+    <temporal/>
+    <spectral/>
+  </coverage>
 
   <data id="import">
     <property key="previewDir">previews</property>
@@ -106,9 +112,10 @@
       </iterator>
       <rowfilter procDef="//products#define">
         <bind name="table">"\schema.data"</bind>
+        <bind key="accref">\inputRelativePath{True}</bind>
         <bind name="path">makeAbsoluteURL(
           "\rdId/sdl/dlget?ID="+urllib.quote(
-            getStandardPubDID(\inputRelativePath{False})))</bind>
+            getStandardPubDID(\inputRelativePath{True})))</bind>
         <bind name="mime">"application/x-votable+xml"</bind>
         <bind name="preview_mime">"image/png"</bind>
         <bind name="preview">\standardPreviewPath</bind>
