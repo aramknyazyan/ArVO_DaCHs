@@ -1,0 +1,23 @@
+These are the original full plate scans of the DFBS.  Aram got them in
+2018 from disks stored at the Byurakan archive.
+
+Temporary status: There's too many problems with bad header cards and
+the ancient WCS.  Research ways to fix both issues.
+
+
+Open questions:
+
+(1) The header for FBS1325_COR.FITS contains ac02 in the header (at
+offsets ~000004a0 and ~000004f0).  That makes them invalid -- where
+do they come from?
+
+(2) How do we get basic metadata on these (observation date, exposure
+time, emulsion used, ...)?
+
+(3) How do we find out what field was observed on a given plate (ideally
+without going through the astrometrical reduction).
+
+(4) It would be really great if new-style WCS headers could be attached
+to the scans (research standard tools to turn DSS-style WCS into
+standard FITS-WCS.
+
