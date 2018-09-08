@@ -143,7 +143,7 @@
       verbLevel="15"/>
   </table>
 
-  <data id="import">
+  <data id="import" recreateAfter="make_view">
     <property key="previewDir">previews</property>
     <sources pattern="data/*.zip"/>
     <embeddedGrammar>
@@ -160,7 +160,6 @@
           for memberName in zipSource.namelist():
             if not memberName.endswith(".spec"):
               continue
-
 
             f = zipSource.open(memberName, "r")
             lam_max, lam_min = 0, 1e30
@@ -193,10 +192,10 @@
       </iterator>
 
       <rowfilter procDef="//products#define">
-        <bind name="table">"\schema.data"</bind>
+        <bind name="table">"\schema.spectra"</bind>
         <bind key="accref">"\rdId/"+@spec_id</bind>
         <bind name="path">makeAbsoluteURL(
-          "\rdId/sdl/dlget?ID="+urllib.quote(@spec_id))</bind>
+          "\rdId/sdl/dlget?ID="+urllib.quote("\rdId/"+@spec_id))</bind>
         <bind name="mime">"application/x-votable+xml"</bind>
         <bind name="preview_mime">"image/png"</bind>
         <bind name="preview">\standardPreviewPath</bind>
@@ -254,9 +253,9 @@
           accref, owner, embargo, mime, accsize,
           'DFBS spectrum ' || objectid AS ssa_dstitle,
           NULL::TEXT AS ssa_creatorDID,
-          'ivo://\getConfig{ivoa}{authority}/~?' || spec_id AS ssa_pubDID,
+          'ivo://\getConfig{ivoa}{authority}/~?\rdId/' || spec_id AS ssa_pubDID,
           NULL::TEXT AS ssa_cdate,
-          '2018-09-01'::DATE AS ssa_pdate,
+          '2018-09-01'::TIMESTAMP AS ssa_pdate,
           'Optical'::TEXT AS ssa_bandpass,
           '1.0'::TEXT AS ssa_cversion,
           NULL::TEXT AS ssa_targname,
@@ -320,20 +319,14 @@
     <embeddedGrammar>
       <iterator>
         <code>
-          sourcePath = os.path.join(base.getConfig("inputsDir"),
-              self.sourceToken["accref"])
-          with open(sourcePath) as f:
-            for ln in f:
-              if ln.startswith("#"):
-                continue
-              elif not ln.strip():
-                continue
-              else:
-                px, flux, lam = ln.split()
-                yield {
-                  "spectral": float(lam),
-                  "flux": float(flux)
-                }
+          with base.getTableConn() as conn:
+            res = list(conn.query(
+              "select spectral, flux from dfbsspec.spectra"
+              "  where accref=%(accref)s",
+              {"accref": self.sourceToken["accref"]}))[0]
+
+          for lam, flx in zip(*res):
+            yield {"spectral": lam, "flux": flx}
         </code>
       </iterator>
     </embeddedGrammar>
