@@ -47,7 +47,7 @@
     <meta name="waveband">Optical</meta>
   </meta>
 
-  <table id="specmeta" onDisk="true" adql="hidden" mixin="//products#table">
+  <table id="spectra" onDisk="true" adql="hidden" mixin="//products#table">
     <meta name="description">
       Raw metadata for the spectra, to be combined with image
       metadata like date_obs and friends for a complete spectrum
@@ -145,20 +145,28 @@
 
   <data id="import">
     <property key="previewDir">previews</property>
-    <sources pattern="data/*.spec" recurse="True"/>
+    <sources pattern="data/*.zip"/>
     <embeddedGrammar>
       <iterator>
         <setup>
           <code>
             import re
             import numpy
+            import zipfile
           </code>
         </setup>
         <code>
-          res = {}
-          with open(self.sourceToken) as f:
+          zipSource = zipfile.ZipFile(self.sourceToken, mode="r")
+          for memberName in zipSource.namelist():
+            if not memberName.endswith(".spec"):
+              continue
+
+
+            f = zipSource.open(memberName, "r")
             lam_max, lam_min = 0, 1e30
             spectral, flux = [], []
+
+            res = {}
             for ln in f:
               if ln.startswith("# "):
                 if not ":" in ln:
@@ -180,24 +188,23 @@
             res["flux"] = numpy.array(flux)
             res["spectral"] = numpy.array(spectral)
             res["spec_id"] = res["plate"] + "-" + res["objectid"][5:]
-          yield res
+            yield res
         </code>
       </iterator>
 
       <rowfilter procDef="//products#define">
         <bind name="table">"\schema.data"</bind>
-        <bind key="accref">\inputRelativePath{True}</bind>
+        <bind key="accref">"\rdId/"+@spec_id</bind>
         <bind name="path">makeAbsoluteURL(
-          "\rdId/sdl/dlget?ID="+urllib.quote(
-            getStandardPubDID(\inputRelativePath{True})))</bind>
+          "\rdId/sdl/dlget?ID="+urllib.quote(@spec_id))</bind>
         <bind name="mime">"application/x-votable+xml"</bind>
         <bind name="preview_mime">"image/png"</bind>
         <bind name="preview">\standardPreviewPath</bind>
-        <bind name="fsize">5*\inputSize</bind>
+        <bind name="fsize">20000</bind>
       </rowfilter>
     </embeddedGrammar>
 
-    <make table="specmeta">
+    <make table="spectra">
       <rowmaker idmaps="*">
         <simplemaps>
           sp_class: spectrumclass,
@@ -226,9 +233,9 @@
     </make>
   </data>
 
-  <table id="data" onDisk="true" namePath="specmeta">
+  <table id="data" onDisk="true" namePath="spectra">
     <meta name="description">A view providing standard SSA metadata for
-      DBFS metadata in \schema.specmeta</meta>
+      DBFS metadata in \schema.spectra</meta>
     <mixin
       fluxUnit=" "
       fluxUCD="phot.flux.density"
@@ -238,6 +245,18 @@
     
     <column original="magb"/>
     <column original="magr"/>
+
+    <viewStatement>
+    CREATE VIEW \curtable AS (
+      SELECT \colNames FROM (
+        SELECT
+          accref, owner, embargo, mime, accsize,
+          'DFBS spectrum ' || objectid as ssa_dstitle,
+          NULL::TEXT as ssa_creatorDID,
+          ssa_pubDID
+      ) AS q
+    )
+    </viewStatement>
   </table>
 
   <coverage>
@@ -249,8 +268,8 @@
 
   <data id="make_view" auto="False">
     <property key="previewDir">previews</property>
-    <make table="data">
-      <rowmaker idmaps="ssa_*">
+    <make table="data"/>
+<!--      <rowmaker idmaps="ssa_*">
         <apply procDef="//ssap#setMeta">
           <bind name="alpha">hmsToDeg(@raJ, ":")</bind>
           <bind name="aperture">2/3600.</bind>
@@ -270,7 +289,7 @@
           <bind name="creationType">"archival"</bind>
         </apply>
       </rowmaker>
-    </make>
+    </make> -->
   </data>
 
   <table id="spectrum">
