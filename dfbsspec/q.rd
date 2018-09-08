@@ -5,9 +5,9 @@
 * coverage profile, creator
 -->
 <resource schema="dfbsspec">
-  <meta name="title">Digitized First Byurakan Survey (DFBS)</meta>
+  <meta name="title">Digitized First Byurakan Survey (DFBS) Extracted Spectra</meta>
   <meta name="description" format="rst">
-    First Byurakan Survey (FBS) is the largest and the first systematic
+    The First Byurakan Survey (FBS) is the largest and the first systematic
     objective prism survey of the extragalactic sky. It covers 17,000 sq.deg.
     in the Northern sky together with a high galactic latitudes region in the
     Southern sky. The FBS has been carried out by B.E. Markarian, V.A.
