@@ -8,19 +8,10 @@ The test data assumed can be obtained by
 
 scp arvo-registry.sci.am:/var/gavo/inputs/dfbs_spec/data/fbs1163-DFBSJ01561\* data/
 
-Questions to Areg:
+TODO
 
-* What to put in as creation date for the files?  [version indicator; 
-  can we reconstruct extraction time]
-* What to use for bandpass id -- use emulsion name from plate
-* are stat and sys errors known? -- use background level of plate?  or
-  from limiting magnitude?  TODO at workshop
-* what other values are possible for spectrum class -- look at web page
-* What's spectrum length?  Pixels in files or pixels on plate?
-* Red bord position -- distance from extraction start to cutout edge
-  (anything greatly different from 16 is a sign of trouble)
-
-
-Work out how to figure out:
-
-* dateObs, timeExt
+* Can we add error estimates (Areg's ideas: use background level,
+  perhaps measured by limiting magnitude)
+* Figure out what "spectrum class" means
+* What's with FBS 0966: There are two of them in WFPDB.  Same for 326
+  and 449.

@@ -256,7 +256,7 @@
           'ivo://\getConfig{ivoa}{authority}/~?\rdId/' || spec_id AS ssa_pubDID,
           NULL::TEXT AS ssa_cdate,
           '2018-09-01'::TIMESTAMP AS ssa_pdate,
-          'Optical'::TEXT AS ssa_bandpass,
+          emulsion AS ssa_bandpass,
           '1.0'::TEXT AS ssa_cversion,
           NULL::TEXT AS ssa_targname,
           NULL::TEXT AS ssa_targclass,
@@ -265,8 +265,8 @@
           snr AS ssa_snr,
           pos AS ssa_location,
           2/3600.::REAL AS ssa_aperture,
-          NULL::DOUBLE PRECISION AS ssa_dateObs, -- FIXME
-          NULL::REAL AS ssa_timeExt, -- FIXME
+          epoch AS ssa_dateObs, 
+          exptime AS ssa_timeExt,
           (lam_min+lam_max)/2. AS ssa_specmid,
           lam_max-lam_min AS ssa_specext,
           lam_min AS ssa_specstart,
@@ -291,6 +291,8 @@
           NULL::spoly AS ssa_region,
           magb, magr, plate
         FROM \schema.spectra
+        LEFT OUTER JOIN \schema.platemeta
+        ON (plateid=plate)
       ) AS q
     )
     </viewStatement>
@@ -306,6 +308,77 @@
   <data id="make_view" auto="False">
     <property key="previewDir">previews</property>
     <make table="data"/>
+  </data>
+
+  <table id="platemeta" onDisk="True" primary="plateid"
+      adql="hidden">
+    <meta name="description">Metadata for the plates making up the
+    Byurakan spectral surveys, obtained from the WFPDB.</meta>
+
+    <column name="plateid" type="text"
+      ucd="meta.id;meta.main"
+      tablehead="Plate"
+      description="Identifier of the plate; this is 'fbs' plus the plate
+        number."
+      verbLevel="1"/>
+    <column name="epoch" type="double precision"
+      unit="d" ucd="time.epoch"
+      tablehead="Date Obs."
+      description="Date of observation from WFPDB (this probably does not
+        include the time)."
+      verbLevel="1"/>
+    <column name="exptime"
+      unit="s" ucd="time.duration;obs.exposure"
+      tablehead="Exp. Time"
+      description="Exposure time from WFPDB."
+      verbLevel="1"/>
+    <column name="emulsion" type="text"
+      ucd="instr.plate.emulsion"
+      tablehead="Emulsion"
+      description="Emulsion used in this plate from WFPDB."
+      verbLevel="1"/>
+  </table>
+
+  <data id="import_platemeta" auto="False" recreateAfter="make_view">
+    <!-- we pull data from the GAVO DC's wfpdb mirror.  It might pay
+      to re-run this now and then as WFPDB data gets updated.. -->
+    <sources item="http://dc.g-vo.org/tap/sync"/>
+    <embeddedGrammar>
+      <iterator>
+        <code>
+          from urllib import urlencode
+          from gavo import votable
+          from gavo.stc import jYearToDateTime, dateTimeToMJD
+
+          f = utils.urlopenRemote(self.sourceToken, data=urlencode({
+            "LANG": "ADQL",
+            "QUERY": "select object as plateid, epoch, exptime, emulsion"
+              " from wfpdb.main"
+              " where object is not null and object!=''"
+              "   and instr_id='BYU102A'"
+              "   and method='objective prism'"}))
+
+          data, metadata = votable.load(f)
+          for row in metadata.iterDicts(data):
+
+            # HACK: duplicates in WFPDB.  Randomly throw out one of each pair
+            if row["plateid"]=="NPS":
+              continue
+            if row["plateid"]=="FBS 0966" and int(row["epoch"])==1974:
+              continue
+            if row["plateid"]=="FBS 0326" and row["epoch"]>1971.05:
+              continue
+            if row["plateid"]=="FBS 0449" and row["epoch"]>1971.38:
+              continue
+
+            row["epoch"] = dateTimeToMJD(jYearToDateTime(row["epoch"]))
+            row["plateid"] = row["plateid"].replace("FBS ", "fbs")
+            yield row
+        </code>
+      </iterator>
+    </embeddedGrammar>
+
+    <make table="platemeta"/>
   </data>
 
   <table id="spectrum">
