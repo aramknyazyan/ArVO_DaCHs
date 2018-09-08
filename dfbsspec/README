@@ -10,15 +10,17 @@ scp arvo-registry.sci.am:/var/gavo/inputs/dfbs_spec/data/fbs1163-DFBSJ01561\* da
 
 Questions to Areg:
 
-* What to put in as creation date for the files?  [version indicator]
-* What to use for bandpass id ("blue"? "visual"?)
-* target class: anyone working on providing one?
-* are stat and sys errors known?
-* what other values are possible for spectrum class?
+* What to put in as creation date for the files?  [version indicator; 
+  can we reconstruct extraction time]
+* What to use for bandpass id -- use emulsion name from plate
+* are stat and sys errors known? -- use background level of plate?  or
+  from limiting magnitude?  TODO at workshop
+* what other values are possible for spectrum class -- look at web page
 * What's spectrum length?  Pixels in files or pixels on plate?
-* Red bord position?
+* Red bord position -- distance from extraction start to cutout edge
+  (anything greatly different from 16 is a sign of trouble)
 
 
 Work out how to figure out:
 
-* dateObs, timeExt, spec*
+* dateObs, timeExt

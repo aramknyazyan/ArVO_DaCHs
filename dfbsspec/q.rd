@@ -55,9 +55,16 @@
       in array-valued columns.
     </meta>
 
-    <primary>objectid</primary>
+    <primary>spec_id</primary>
     <index columns="plate"/>
+    <index columns="pos" method="GIST"/>
 
+    <column name="spec_id" type="text"
+      ucd="meta.id;meta.main"
+      tablehead="ID"
+      description="Identifier of the spectrum built from the plate identifier,
+        a -, and the object position as in objectid."
+      verbLevel="25"/>
     <column name="plate" type="text"
       ucd=""
       tablehead="Src. Plate"
@@ -65,7 +72,7 @@
         from.  Technically, this is a foreign key into dfbs.plates."
       verbLevel="1"/>
     <column name="objectid" type="text"
-      ucd="meta.id;meta.main"
+      ucd="meta.id"
       tablehead="Obj."
       description="Synthetic object id assigned by DFBS."
       verbLevel="1"/>
@@ -118,10 +125,6 @@
       tablehead="mag. R"
       description="Source object magnitude in Johnson R"
       verbLevel="15"/>
-    <column name="dlurl" type="text"
-      tablehead="Datalink URI"
-      description="Datalink (more formats, more access options) URL"
-      displayHint="type=url"/>
     
     <column name="snr"
       unit="" ucd=""
@@ -165,7 +168,7 @@
               elif ln.startswith("##"):
                 pass
               else:
-                px, lam, flx = ln.split()
+                px, flx, lam = ln.split()
                 lam = float(lam)*1e-9
                 lam_max = max(lam_max, lam)
                 lam_min = min(lam_min, lam)
@@ -176,6 +179,7 @@
             res["lam_min"] = lam_min
             res["flux"] = numpy.array(flux)
             res["spectral"] = numpy.array(spectral)
+            res["spec_id"] = res["plate"] + "-" + res["objectid"][5:]
           yield res
         </code>
       </iterator>
