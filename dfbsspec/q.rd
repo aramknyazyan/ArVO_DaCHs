@@ -245,15 +245,53 @@
     
     <column original="magb"/>
     <column original="magr"/>
+    <column original="plate"/>
 
     <viewStatement>
     CREATE VIEW \curtable AS (
       SELECT \colNames FROM (
         SELECT
           accref, owner, embargo, mime, accsize,
-          'DFBS spectrum ' || objectid as ssa_dstitle,
-          NULL::TEXT as ssa_creatorDID,
-          ssa_pubDID
+          'DFBS spectrum ' || objectid AS ssa_dstitle,
+          NULL::TEXT AS ssa_creatorDID,
+          'ivo://\getConfig{ivoa}{authority}/~?' || spec_id AS ssa_pubDID,
+          NULL::TEXT AS ssa_cdate,
+          '2018-09-01'::DATE AS ssa_pdate,
+          'Optical'::TEXT AS ssa_bandpass,
+          '1.0'::TEXT AS ssa_cversion,
+          NULL::TEXT AS ssa_targname,
+          NULL::TEXT AS ssa_targclass,
+          NULL::REAL AS ssa_redshift,
+          NULL::spoint AS ssa_targetpos,
+          snr AS ssa_snr,
+          pos AS ssa_location,
+          2/3600.::REAL AS ssa_aperture,
+          NULL::DOUBLE PRECISION AS ssa_dateObs, -- FIXME
+          NULL::REAL AS ssa_timeExt, -- FIXME
+          (lam_min+lam_max)/2. AS ssa_specmid,
+          lam_max-lam_min AS ssa_specext,
+          lam_min AS ssa_specstart,
+          lam_max AS ssa_specend,
+          px_length AS ssa_length,
+          'spectrum'::TEXT AS ssa_dstype,
+          'BAO'::TEXT AS ssa_publisher,
+          'Markarian et al'::TEXT AS ssa_creator,
+          'DFBS spectra'::TEXT AS ssa_collection,
+          'Byurakan 1m Schmidt'::TEXT AS ssa_instrument,
+          'survey'::TEXT AS ssa_datasource,
+          'archival'::TEXT AS ssa_creationtype,
+          '2007A&amp;A...464.1177M'::TEXT AS ssa_reference,
+          NULL::REAL AS ssa_fluxStatError,
+          NULL::REAL AS ssa_fluxSysError,
+          'UNCALIBRATED'::TEXT AS ssa_fluxcalib,
+          50e-10::REAL AS ssa_binSize,
+          NULL::REAL AS ssa_spectStatError,
+          NULL::REAL AS ssa_spectSysError,
+          'ABSOLUTE'::TEXT AS ssa_speccalib,
+          50e-10::REAL AS ssa_specres,
+          NULL::spoly AS ssa_region,
+          magb, magr, plate
+        FROM \schema.spectra
       ) AS q
     )
     </viewStatement>
@@ -269,27 +307,6 @@
   <data id="make_view" auto="False">
     <property key="previewDir">previews</property>
     <make table="data"/>
-<!--      <rowmaker idmaps="ssa_*">
-        <apply procDef="//ssap#setMeta">
-          <bind name="alpha">hmsToDeg(@raJ, ":")</bind>
-          <bind name="aperture">2/3600.</bind>
-          <bind name="delta">dmsToDeg(@decJ, ":")</bind>
-          <bind name="dstitle">"DFBS spectrum "+@objectid</bind>
-          <bind name="length">float(@spectrumlength.split()[0])</bind>
-          <bind name="pubDID">\standardPubDID</bind>
-          <bind name="snr">@snr</bind>
-          <bind name="targname">@objectid</bind>
-        </apply>
-        <apply procDef="//ssap#setMixcMeta">
-          <bind name="binSize">50e-10</bind>
-          <bind name="collection">"DFBS"</bind>
-          <bind name="dataSource">"survey"</bind>
-          <bind name="fluxCalib">"UNCALIBRATED"</bind>
-          <bind name="specCalib">"ABSOLUTE"</bind>
-          <bind name="creationType">"archival"</bind>
-        </apply>
-      </rowmaker>
-    </make> -->
   </data>
 
   <table id="spectrum">
