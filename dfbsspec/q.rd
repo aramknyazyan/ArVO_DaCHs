@@ -381,6 +381,37 @@
     <make table="platemeta"/>
   </data>
 
+
+  <table id="spec_data" onDisk="True" adql="True">
+    <meta name="description">This table contains basic metadata as well
+      as the spectra from the Digital First Byurakan Survey (DFBS).
+    </meta>
+    <LOOP listItems="accref plate objectid ra dec pos sp_class px_length
+        spectral flux magb magr snr lam_min lam_max">
+      <events>
+        <column original="spectra.\item"/>
+      </events>
+    </LOOP>
+    <LOOP listItems="epoch exptime emulsion">
+      <events>
+        <column original="platemeta.\item"/>
+      </events>
+    </LOOP>
+    <viewStatement>
+      CREATE VIEW \curtable AS (
+        SELECT \colNames FROM (
+          SELECT * FROM 
+            \schema.spectra
+            JOIN \schema.platemeta
+            ON (plate=plateid)) AS t)
+    </viewStatement>
+  </table>
+
+  <data id="make_tap_view" auto="False">
+    <make table="spec_data"/>
+  </data>
+
+
   <table id="spectrum">
     <mixin ssaTable="data"
       fluxDescription="Relative Flux"
