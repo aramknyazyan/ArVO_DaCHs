@@ -4,9 +4,10 @@ spectral survey.
 We got the data from Daniel, who in turn got it from the old Italian
 web service.
 
-The test data assumed can be obtained by
-
-scp arvo-registry.sci.am:/var/gavo/inputs/dfbs_spec/data/fbs1163-DFBSJ01561\* data/
+The test data assumed by the tests is in the folder test-data.  Copy it
+into data/ to build a test service; do *not* copy it into data/ of the
+live site, as the spectra are already in the full data set, and you'd
+cause a primary key error.
 
 TODO
 
