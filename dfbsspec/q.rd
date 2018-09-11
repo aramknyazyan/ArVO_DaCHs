@@ -522,7 +522,24 @@ autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>-->
         self.assertAlmostEqual(rows[-1]["flux"], 0.03)
       </code>
     </regTest>
+
+    <regTest title="spectra TAP table present">
+      <url parSet="TAP" QUERY="SELECT * FROM dfbsspec.spectra
+        WHERE objectid='DFBSJ015610.24+202225.0'"
+        >/tap/sync</url>
+      <code>
+        rows = self.getVOTableRows()
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertAlmostEqual(row["lam_min"],  3.2060000e-07)
+        self.assertAlmostEqual(row["dec"],  305.604375)
+        self.assertEqual(row["emulsion"],  "IIF")
+        self.assertAlmostEqual(row["flux"][2], 0.09000000)
+        self.assertAlmostEqual(row["spectral"][1], 9.771999884833349e-07)
+      </code>
+    </regTest>
   </regSuite>
+
 </resource>
 
 <!-- vi:et:sta:sw=2
