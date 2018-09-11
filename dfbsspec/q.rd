@@ -251,7 +251,7 @@
       SELECT \colNames FROM (
         SELECT
           accref, owner, embargo, mime, accsize,
-          'DFBS spectrum ' || objectid AS ssa_dstitle,
+          objectid || ' spectrum from ' || plate AS ssa_dstitle,
           NULL::TEXT AS ssa_creatorDID,
           'ivo://\getConfig{ivoa}{authority}/~?\rdId/' || spec_id AS ssa_pubDID,
           NULL::TEXT AS ssa_cdate,
@@ -271,7 +271,7 @@
           lam_max-lam_min AS ssa_specext,
           lam_min AS ssa_specstart,
           lam_max AS ssa_specend,
-          px_length AS ssa_length,
+          px_length::INTEGER AS ssa_length,
           'spectrum'::TEXT AS ssa_dstype,
           'BAO'::TEXT AS ssa_publisher,
           'Markarian et al'::TEXT AS ssa_creator,
@@ -491,46 +491,37 @@ autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>-->
 
   <regSuite title="DFBS regression">
     <regTest title="Spectra metadata plausible via SSA">
-      <url REQUEST="queryData" POS="322.932108332,-12.7728472233"  
+      <url REQUEST="queryData" POS="29.0426958,-54.39563"
         SIZE="0.001">ssa/ssap.xml</url>
       <code>
         row = self.getFirstVOTableRow()
-        self.assertAlmostEqual(row['ssa_location'].asSODA(),	
-          "322.932108332 -12.7728472233")
-        self.assertTrue(row["dlurl"].endswith("/dfbs/q/sdl/dlmeta?"
-          "ID=ivo%3A//org.gavo.dc/%7E%3Fdfbs/data/tmpdata/"
-          "fbs1053-DFBSJ213143.70-124622.2.spec"))
+        self.assertEqual(row['ssa_location'].asSODA(),	
+          '29.0426958306 -54.3956250028')
         self.assertEqual(row["ssa_dstitle"], 
-          'DFBS spectrum DFBSJ213143.70-124622.2')
+          'DFBSJ015610.24+202225.0 spectrum from fbs1163')
+        self.assertEqual(row["ssa_bandpass"], "IIF")
+        self.assertEqual(row["ssa_length"], 109)
+        self.assertAlmostEqual(row["ssa_specstart"], 3.206e-07)
+        self.assertAlmostEqual(row["ssa_dateObs"], 42332.000, places=3)
       </code>
     </regTest>
 
     <regTest title="DFBS previews present">
-      <url>/getproduct/dfbs/data/tmpdata/fbs1053-DFBSJ213148.47-125004.7.spec?preview=True</url>
+      <url>/getproduct/dfbsspec/q/fbs1163-015613.29+201136.2?preview=True</url>
       <code>
         self.assertHasStrings("PNG", "IDATx")
       </code>
     </regTest>
 
-    <regTest title="DFBS datalink meta has progenitor link">
-      <url ID="ivo://org.gavo.dc/~?dfbs/data/tmpdata/fbs1053-DFBSJ213143.70-124622.2.spec">sdl/dlmeta</url>
-      <code>
-        rows = self.getVOTableRows()
-        for row in rows:
-          if row["semantics"]=="#progenitor":
-            self.assertTrue(row["access_url"].endswith(
-              "/dfbs/q/sdl/static/tmpdata/fbs1053-DFBSJ213143.70-124622.2.spec"),
-              "Progenitor link in datalink access_url column not in expected"
-              " form")
-      </code>
-    </regTest>
-
     <regTest title="Datalink dataset generation works">
-      <url ID="ivo://org.gavo.dc/~?dfbs/data/tmpdata/fbs1053-DFBSJ213143.70-124622.2.spec">sdl/dlget</url>
+      <url ID="ivo://org.gavo.dc/~?dfbsspec/q/fbs1163-015613.29+201136.2"
+        >sdl/dlget</url>
       <code>
         self.assertHasStrings('utype="spec:Spectrum"', 'name="citation"',
           'value="UNCALIBRATED"')
-        self.assertEqual(self.getFirstVOTableRow()["spectral"], 1038.0)
+        rows = self.getVOTableRows()
+        self.assertAlmostEqual(rows[-1]["spectral"], 3.214e-07)
+        self.assertAlmostEqual(rows[-1]["flux"], 0.03)
       </code>
     </regTest>
   </regSuite>

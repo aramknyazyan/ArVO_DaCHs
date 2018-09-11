@@ -5,4 +5,4 @@ class PreviewMaker(api.SpectralPreviewMaker):
 
 
 if __name__=="__main__":
-  api.procmain(PreviewMaker, "dfbs/q", "import")
+  api.procmain(PreviewMaker, "dfbsspec/q", "import")
