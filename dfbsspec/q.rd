@@ -1,9 +1,3 @@
-<!--
-* remaining metadata from spectra
-* metadata from source images (dateObs!)
-* description, additional service parameters
-* coverage profile, creator
--->
 <resource schema="dfbsspec">
   <meta name="title">Digitized First Byurakan Survey (DFBS) Extracted Spectra</meta>
   <meta name="description" format="rst">
@@ -47,7 +41,7 @@
     <meta name="waveband">Optical</meta>
   </meta>
 
-  <table id="spectra" onDisk="true" adql="hidden" mixin="//products#table">
+  <table id="raw_spectra" onDisk="true" adql="hidden" mixin="//products#table">
     <meta name="description">
       Raw metadata for the spectra, to be combined with image
       metadata like date_obs and friends for a complete spectrum
@@ -143,7 +137,9 @@
       verbLevel="15"/>
   </table>
 
-  <data id="import" recreateAfter="make_view">
+  <data id="import">
+    <recreateAfter>make_ssa_view</recreateAfter>
+    <recreateAfter>make_tap_view</recreateAfter>
     <property key="previewDir">previews</property>
     <sources pattern="data/*.zip"/>
     <embeddedGrammar>
@@ -203,7 +199,7 @@
       </rowfilter>
     </embeddedGrammar>
 
-    <make table="spectra">
+    <make table="raw_spectra">
       <rowmaker idmaps="*">
         <simplemaps>
           sp_class: spectrumclass,
@@ -232,7 +228,7 @@
     </make>
   </data>
 
-  <table id="data" onDisk="true" namePath="spectra">
+  <table id="ssa" onDisk="true" namePath="raw_spectra">
     <meta name="description">A view providing standard SSA metadata for
       DBFS metadata in \schema.spectra</meta>
     <mixin
@@ -290,7 +286,7 @@
           50e-10::REAL AS ssa_specres,
           NULL::spoly AS ssa_region,
           magb, magr, plate
-        FROM \schema.spectra
+        FROM \schema.raw_spectra
         LEFT OUTER JOIN \schema.platemeta
         ON (plateid=plate)
       ) AS q
@@ -299,15 +295,15 @@
   </table>
 
   <coverage>
-    <updater sourceTable="data"/>
+    <updater sourceTable="ssa"/>
     <spatial>6/666-667,689</spatial>
     <temporal/>
     <spectral/>
   </coverage>
 
-  <data id="make_view" auto="False">
+  <data id="make_ssa_view" auto="False">
     <property key="previewDir">previews</property>
-    <make table="data"/>
+    <make table="ssa"/>
   </data>
 
   <table id="platemeta" onDisk="True" primary="plateid"
@@ -339,9 +335,11 @@
       verbLevel="1"/>
   </table>
 
-  <data id="import_platemeta" auto="False" recreateAfter="make_view">
+  <data id="import_platemeta">
     <!-- we pull data from the GAVO DC's wfpdb mirror.  It might pay
       to re-run this now and then as WFPDB data gets updated.. -->
+    <recreateAfter>make_ssa_view</recreateAfter>
+    <recreateAfter>make_tap_view</recreateAfter>
     <sources item="http://dc.g-vo.org/tap/sync"/>
     <embeddedGrammar>
       <iterator>
@@ -382,14 +380,14 @@
   </data>
 
 
-  <table id="spec_data" onDisk="True" adql="True">
+  <table id="spectra" onDisk="True" adql="True">
     <meta name="description">This table contains basic metadata as well
       as the spectra from the Digital First Byurakan Survey (DFBS).
     </meta>
     <LOOP listItems="accref plate objectid ra dec pos sp_class px_length
         spectral flux magb magr snr lam_min lam_max">
       <events>
-        <column original="spectra.\item"/>
+        <column original="raw_spectra.\item"/>
       </events>
     </LOOP>
     <LOOP listItems="epoch exptime emulsion">
@@ -401,19 +399,19 @@
       CREATE VIEW \curtable AS (
         SELECT \colNames FROM (
           SELECT * FROM 
-            \schema.spectra
+            \schema.raw_spectra
             JOIN \schema.platemeta
             ON (plate=plateid)) AS t)
     </viewStatement>
   </table>
 
-  <data id="make_tap_view" auto="False">
-    <make table="spec_data"/>
+  <data id="make_tap_view">
+    <make table="spectra"/>
   </data>
 
 
   <table id="spectrum">
-    <mixin ssaTable="data"
+    <mixin ssaTable="ssa"
       fluxDescription="Relative Flux"
       spectralDescription="Wavelength"
       >//ssap#sdm-instance</mixin>
@@ -448,7 +446,7 @@
 
     <datalinkCore>
       <descriptorGenerator procDef="//soda#sdm_genDesc">
-        <bind name="ssaTD">"\rdId#data"</bind>
+        <bind name="ssaTD">"\rdId#ssa"</bind>
       </descriptorGenerator>
       <dataFunction procDef="//soda#sdm_genData">
         <bind name="builder">"\rdId#build_sdm_data"</bind>
@@ -469,7 +467,7 @@
 
   <service id="web">
     <meta name="title">Digitized First Byurakan Survey Browser Interface</meta>
-    <dbCore queriedTable="data">
+    <dbCore queriedTable="ssa">
       <condDesc buildFrom="ssa_location"/>
       <condDesc buildFrom="magb"/>
     </dbCore>
@@ -477,14 +475,14 @@
 autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>-->
   </service>
 
-  <service id="ssa" allowed="ssap.xml,form">
+  <service id="getssa" allowed="ssap.xml,form">
     <meta name="shortName">DFBS SSAP</meta>
     <meta name="ssap.dataSource">pointed</meta>
     <meta name="ssap.testQuery">MAXREC=1</meta>
     <meta name="ssap.creationType">archival</meta>
     <meta name="ssap.complianceLevel">query</meta>
 
-    <ssapCore queriedTable="data">
+    <ssapCore queriedTable="ssa">
       <FEED source="//ssap#hcd_condDescs"/>
     </ssapCore>
   </service>
@@ -492,7 +490,7 @@ autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>-->
   <regSuite title="DFBS regression">
     <regTest title="Spectra metadata plausible via SSA">
       <url REQUEST="queryData" POS="29.0426958,-54.39563"
-        SIZE="0.001">ssa/ssap.xml</url>
+        SIZE="0.001">getssa/ssap.xml</url>
       <code>
         row = self.getFirstVOTableRow()
         self.assertEqual(row['ssa_location'].asSODA(),	
