@@ -149,6 +149,40 @@
             import re
             import numpy
             import zipfile
+
+            def parse_a_spectrum(src_f):
+              """returns a rawdict from an open file.
+              
+              This can raise all kinds of exceptions depending on
+              the way in which the source is broken.
+              """
+              lam_max, lam_min = 0, 1e30
+              spectral, flux = [], []
+
+              res = {}
+              for ln in src_f:
+                if ln.startswith("# "):
+                  if not ":" in ln:
+                    continue
+                  key, value = ln[1:].strip().split(":", 1)
+                  res[re.sub("[^A-Za-z]+", "", key)] = value.strip()
+                elif ln.startswith("##"):
+                  pass
+                else:
+                  px, flx, lam = ln.split()
+                  lam = float(lam)*1e-9
+                  lam_max = max(lam_max, lam)
+                  lam_min = min(lam_min, lam)
+                  flux.append(float(flx))
+                  spectral.append(lam)
+
+              res["lam_max"] = lam_max
+              res["lam_min"] = lam_min
+              res["flux"] = numpy.array(flux)
+              res["spectral"] = numpy.array(spectral)
+              res["spec_id"] = res["plate"] + "-" + res["objectid"][5:]
+
+              return res
           </code>
         </setup>
         <code>
@@ -158,32 +192,14 @@
               continue
 
             f = zipSource.open(memberName, "r")
-            lam_max, lam_min = 0, 1e30
-            spectral, flux = [], []
+            
+            try:
+              yield parse_a_spectrum(f)
+            except Exception as exc:
+              base.ui.notifyError("Botched spectrum: %s %s %s"%(
+                self.sourceToken, memberName, exc))
+              continue
 
-            res = {}
-            for ln in f:
-              if ln.startswith("# "):
-                if not ":" in ln:
-                  continue
-                key, value = ln[1:].strip().split(":", 1)
-                res[re.sub("[^A-Za-z]+", "", key)] = value.strip()
-              elif ln.startswith("##"):
-                pass
-              else:
-                px, flx, lam = ln.split()
-                lam = float(lam)*1e-9
-                lam_max = max(lam_max, lam)
-                lam_min = min(lam_min, lam)
-                flux.append(float(flx))
-                spectral.append(lam)
-
-            res["lam_max"] = lam_max
-            res["lam_min"] = lam_min
-            res["flux"] = numpy.array(flux)
-            res["spectral"] = numpy.array(spectral)
-            res["spec_id"] = res["plate"] + "-" + res["objectid"][5:]
-            yield res
         </code>
       </iterator>
 
@@ -209,7 +225,6 @@
 
         <var key="ra">hmsToDeg(@raJ, ":")</var>
         <var key="dec">hmsToDeg(@decJ, ":")</var>
-        <map key="px_length">float(@spectrumlength.split(" ")[0])</map>
         <map key="px_length">float(@spectrumlength.split(" ")[0])</map>
         <map key="pos">pgsphere.SPoint.fromDegrees(@ra, @dec)</map>
 

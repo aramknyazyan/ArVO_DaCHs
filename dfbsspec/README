@@ -7,7 +7,9 @@ web service.
 The test data assumed by the tests is in the folder test-data.  Copy it
 into data/ to build a test service; do *not* copy it into data/ of the
 live site, as the spectra are already in the full data set, and you'd
-cause a primary key error.
+cause a primary key error.  Also, one of the spectra is deliberately
+broken; you should get exactly one message about a Botched Spectrum and
+29 ingested rows.
 
 TODO
 
