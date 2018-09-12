@@ -16,5 +16,36 @@ TODO
 * Can we add error estimates (Areg's ideas: use background level,
   perhaps measured by limiting magnitude)
 * Figure out what "spectrum class" means
-* What's with FBS 0966: There are two of them in WFPDB.  Same for 326
-  and 449.
+
+The duplicated plateid problem
+------------------------------
+
+The plate ids for FBS 0966, 0326, and 0449 are given twice in WFPDB.
+Here's the relevant fields:
+
+    wfpdbid    | raj2000 | dej2000 |  object  |      epoch       | emulsion
+---------------+---------+---------+----------+------------------+----------
+ BYU102A002880 | 179.871 | 54.8386 | FBS 0326 | 1971.00479123888 | IIAF
+ BYU102A002881 | 135.442 | 30.8853 | FBS 0326 | 1971.05681040383 | IIAF
+
+    wfpdbid    | raj2000 | dej2000 |  object  |      epoch       | emulsion
+---------------+---------+---------+----------+------------------+----------
+ BYU102A003061 | 236.954 | 50.9117 | FBS 0449 | 1971.37987679671 | Zu-2
+ BYU102A003062 | 187.858 |   29.84 | FBS 0449 | 1971.38809034908 | IIAF
+
+    wfpdbid    | raj2000 | dej2000 |  object  |      epoch       | emulsion
+---------------+---------+---------+----------+------------------+----------
+ BYU102A005151 | 145.179 | 48.8817 | FBS 0966 | 1974.35865845311 | IIaF
+ BYU102A004949 | 106.196 | 34.9586 | FBS 0966 | 1973.83846680356 | IIaF
+
+It seems this isn't (all) an error in the WFPDB -- at least we get a
+primary key collision on our artifical spectrum id when we use the ids
+as given.
+
+Fix: I suppose we should call one of the to nnnn-p (you'll have to do
+that in the embeddedGrammar for platemeta, too).
+
+And then update the table's plateid and spec_id columns based on that,
+too.  But then, ugly: spec_id is used to build accref and the path and
+the preview path, too, so that's a lot of updating to do.  Perhaps it's
+easier (and cleaner) to change the zips?  Hm.
