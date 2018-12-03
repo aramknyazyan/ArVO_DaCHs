@@ -41,7 +41,9 @@
     <meta name="waveband">Optical</meta>
   </meta>
 
-  <table id="raw_spectra" onDisk="true" adql="hidden" mixin="//products#table">
+  <table id="raw_spectra" onDisk="true" adql="hidden">
+     <mixin>//products#table</mixin>
+     <mixin>//scs#q3cindex</mixin>
     <meta name="description">
       Raw metadata for the spectra, to be combined with image
       metadata like date_obs and friends for a complete spectrum
@@ -229,7 +231,7 @@
         </simplemaps>
 
         <var key="ra">hmsToDeg(@raJ, ":")</var>
-        <var key="dec">hmsToDeg(@decJ, ":")</var>
+        <var key="dec">dmsToDeg(@decJ, ":")</var>
         <map key="px_length">float(@spectrumlength.split(" ")[0])</map>
         <map key="pos">pgsphere.SPoint.fromDegrees(@ra, @dec)</map>
 
