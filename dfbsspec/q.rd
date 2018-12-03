@@ -142,7 +142,7 @@
     <recreateAfter>make_tap_view</recreateAfter>
     <property key="previewDir">previews</property>
     <sources pattern="data/*.zip"/>
-    <embeddedGrammar>
+    <embeddedGrammar notify="True">
       <iterator>
         <setup>
           <code>
