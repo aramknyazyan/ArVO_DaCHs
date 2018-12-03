@@ -49,8 +49,9 @@
       in array-valued columns.
     </meta>
 
-    <primary>spec_id</primary>
+<!--    <primary>spec_id</primary> -->
     <index columns="plate"/>
+    <index columns="spec_id"/>
     <index columns="pos" method="GIST"/>
 
     <column name="spec_id" type="text"
@@ -321,7 +322,8 @@
     <make table="ssa"/>
   </data>
 
-  <table id="platemeta" onDisk="True" primary="plateid"
+<!-- put in again when content is fixed:  primary="plateid" -->
+  <table id="platemeta" onDisk="True"
       adql="hidden">
     <meta name="description">Metadata for the plates making up the
     Byurakan spectral surveys, obtained from the WFPDB.</meta>
