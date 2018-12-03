@@ -98,7 +98,7 @@
       verbLevel="25"/>
 
     <column name="spectral" type="real[]"
-      unit="nm" ucd=""
+      unit="m" ucd=""
       tablehead="Spectral[]"
       description="Spectral points of the extracted spectrum (wavelengths) as an
         array"
@@ -171,6 +171,10 @@
                 else:
                   px, flx, lam = ln.split()
                   lam = float(lam)*1e-9
+                  # discard everything longward of 690 nm, as it's certainly
+                  # not physical.
+                  if lam>7e-7:
+                    continue
                   lam_max = max(lam_max, lam)
                   lam_min = min(lam_min, lam)
                   flux.append(float(flx))
@@ -249,7 +253,7 @@
     <mixin
       fluxUnit=" "
       fluxUCD="phot.flux.density"
-      spectralUnit="nm">//ssap#mixc</mixin>
+      spectralUnit="m">//ssap#mixc</mixin>
     <mixin>//ssap#simpleCoverage</mixin>
     <mixin>//obscore#publishSSAPMIXC</mixin>
     
