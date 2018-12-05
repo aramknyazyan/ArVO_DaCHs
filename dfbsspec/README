@@ -38,14 +38,7 @@ Here's the relevant fields:
  BYU102A005151 | 145.179 | 48.8817 | FBS 0966 | 1974.35865845311 | IIaF
  BYU102A004949 | 106.196 | 34.9586 | FBS 0966 | 1973.83846680356 | IIaF
 
-It seems this isn't (all) an error in the WFPDB -- at least we get a
-primary key collision on our artifical spectrum id when we use the ids
-as given.
+Resolution:
 
-Fix: I suppose we should call one of the to nnnn-p (you'll have to do
-that in the embeddedGrammar for platemeta, too).
-
-And then update the table's plateid and spec_id columns based on that,
-too.  But then, ugly: spec_id is used to build accref and the path and
-the preview path, too, so that's a lot of updating to do.  Perhaps it's
-easier (and cleaner) to change the zips?  Hm.
+We rename the later plates to NNNNa in both the plate and the spectrum
+grammar; in the plate grammar, the distinction is based on the epoch.

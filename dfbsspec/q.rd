@@ -92,7 +92,9 @@
     <column name="sp_class" type="text"
       ucd="meta.code.qual"
       tablehead="Sp. Class"
-      description="TODO"
+      description="Quality indicator: OK of undisturbed spectra of sufficiently
+        bright objects, NL if disturbers are nearby, U for objects
+        unclassifiable because of lack of signal."
       verbLevel="25"/>
     <column name="px_length" 
       unit="px" ucd=""
@@ -328,8 +330,7 @@
     <make table="ssa"/>
   </data>
 
-<!-- put in again when content is fixed:  primary="plateid" -->
-  <table id="platemeta" onDisk="True"
+  <table id="platemeta" onDisk="True" primary="plateid"
       adql="hidden">
     <meta name="description">Metadata for the plates making up the
     Byurakan spectral surveys, obtained from the WFPDB.</meta>
@@ -382,15 +383,16 @@
           data, metadata = votable.load(f)
           for row in metadata.iterDicts(data):
 
-            # HACK: duplicates in WFPDB.  Randomly throw out one of each pair
+            # HACK: duplicates in WFPDB.  See README
             if row["plateid"]=="NPS":
               continue
             if row["plateid"]=="FBS 0966" and int(row["epoch"])==1974:
-              continue
+              row["plateid"] = "FBS 0966a"
             if row["plateid"]=="FBS 0326" and row["epoch"]>1971.05:
-              continue
+              row["plateid"] = "FBS 0326a"
             if row["plateid"]=="FBS 0449" and row["epoch"]>1971.38:
-              continue
+              row["plateid"] = "FBS 0449a"
+              
 
             row["epoch"] = dateTimeToMJD(jYearToDateTime(row["epoch"]))
             row["plateid"] = row["plateid"].replace("FBS ", "fbs")
