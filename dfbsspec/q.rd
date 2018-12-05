@@ -55,6 +55,7 @@
 
 <!--    <primary>spec_id</primary> -->
     <index columns="plate"/>
+    <index columns="accref"/>
     <index columns="spec_id"/>
     <index columns="pos" method="GIST"/>
 
