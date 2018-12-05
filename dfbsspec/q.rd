@@ -154,6 +154,12 @@
             import re
             import numpy
             import zipfile
+            
+            # see README for plate id disambiguation
+            DECRANGES_FOR_PLATEID_DEDUP = {
+              "fbs0326": (25, 35),
+              "fbs0449": (25, 35),
+              "fbs0996": (42, 54)}
 
             def parse_a_spectrum(src_f):
               """returns a rawdict from an open file.
@@ -184,6 +190,12 @@
                   lam_min = min(lam_min, lam)
                   flux.append(float(flx))
                   spectral.append(lam)
+
+              if res["plate"] in DECRANGES_FOR_PLATEID_DEDUP:
+                dec = dmsToDeg(decJ, ":")
+                lowerDec, upperDec = DECRANGES_FOR_PLATEID_DEDUP[res["plate"]]
+                if lowerDec<dec<upperDec:
+                  res["plate"] = res["plate"]+"a"
 
               res["lam_max"] = lam_max
               res["lam_min"] = lam_min

@@ -42,3 +42,5 @@ Resolution:
 
 We rename the later plates to NNNNa in both the plate and the spectrum
 grammar; in the plate grammar, the distinction is based on the epoch.
+When reading from the spectra, we distinguish by declination range
+(see DECRANGES_FOR_PLATEID_DEDUP).
