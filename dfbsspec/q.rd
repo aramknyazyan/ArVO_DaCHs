@@ -1,4 +1,6 @@
 <resource schema="dfbsspec">
+  <macDef name="spectralBins">6.9E-7, 6.789E-7, 6.682E-7, 6.58E-7, 6.482E-7, 6.388E-7, 6.298E-7, 6.212E-7, 6.129E-7, 6.049E-7, 5.972E-7, 5.897E-7, 5.826E-7, 5.757E-7, 5.69E-7, 5.626E-7, 5.564E-7, 5.503E-7, 5.445E-7, 5.389E-7, 5.334E-7, 5.281E-7, 5.23E-7, 5.18E-7, 5.132E-7, 5.085E-7, 5.039E-7, 4.995E-7, 4.952E-7, 4.91E-7, 4.869E-7, 4.829E-7, 4.791E-7, 4.753E-7, 4.717E-7, 4.681E-7, 4.646E-7, 4.612E-7, 4.579E-7, 4.547E-7, 4.515E-7, 4.484E-7, 4.454E-7, 4.425E-7, 4.396E-7, 4.368E-7, 4.34E-7, 4.314E-7, 4.287E-7, 4.262E-7, 4.236E-7, 4.212E-7, 4.188E-7, 4.164E-7, 4.141E-7, 4.118E-7, 4.096E-7, 4.074E-7, 4.053E-7, 4.032E-7, 4.011E-7, 3.991E-7, 3.972E-7, 3.952E-7, 3.933E-7, 3.915E-7, 3.896E-7, 3.878E-7, 3.86E-7, 3.843E-7, 3.826E-7, 3.809E-7, 3.793E-7, 3.777E-7, 3.761E-7, 3.745E-7, 3.73E-7, 3.714E-7, 3.7E-7, 3.685E-7, 3.671E-7, 3.656E-7, 3.642E-7, 3.629E-7, 3.615E-7, 3.602E-7, 3.589E-7, 3.576E-7, 3.563E-7, 3.551E-7, 3.538E-7, 3.526E-7, 3.514E-7, 3.502E-7, 3.491E-7, 3.479E-7, 3.468E-7, 3.457E-7, 3.446E-7, 3.435E-7, 3.424E-7, 3.414E-7, 3.403E-7, 3.393E-7, 3.383E-7, 3.373E-7, 3.363E-7, 3.354E-7, 3.344E-7, 3.335E-7, 3.325E-7, 3.316E-7, 3.307E-7, 3.298E-7, 3.289E-7, 3.28E-7, 3.272E-7, 3.263E-7, 3.255E-7, 3.247E-7, 3.238E-7, 3.23E-7, 3.222E-7, 3.214E-7, 3.206E-7, 3.199E-7, 3.191E-7, 3.184E-7, 3.176E-7, 3.169E-7, 3.161E-7, 3.154E-7, 3.147E-7, 3.14E-7, 3.133E-7, 3.126E-7</macDef>
+
   <meta name="title">Digitized First Byurakan Survey (DFBS) Extracted Spectra</meta>
   <meta name="description" format="rst">
     The First Byurakan Survey (FBS) is the largest and the first systematic
@@ -102,12 +104,6 @@
       description="Number of pixels in the extracted spectrum"
       verbLevel="25"/>
 
-    <column name="spectral" type="real[]"
-      unit="m" ucd=""
-      tablehead="Spectral[]"
-      description="Spectral points of the extracted spectrum (wavelengths) as an
-        array"
-      verbLevel="30"/>
     <column name="flux" type="real[]"
       unit="" ucd=""
       tablehead="Flux[]"
@@ -161,6 +157,10 @@
               "fbs0449": (25, 35),
               "fbs0996": (42, 54)}
 
+            # cut off everything redward of this (as it necessarily
+            # is noise)
+            LAMBDA_CUTOFF = float("690")*1e-9
+
             def parse_a_spectrum(src_f):
               """returns a rawdict from an open file.
               
@@ -168,7 +168,7 @@
               the way in which the source is broken.
               """
               lam_max, lam_min = 0, 1e30
-              spectral, flux = [], []
+              flux = []
 
               res = {}
               for ln in src_f:
@@ -184,12 +184,11 @@
                   lam = float(lam)*1e-9
                   # discard everything longward of 690 nm, as it's certainly
                   # not physical.
-                  if lam>7e-7:
+                  if lam>LAMBDA_CUTOFF:
                     continue
                   lam_max = max(lam_max, lam)
                   lam_min = min(lam_min, lam)
                   flux.append(float(flx))
-                  spectral.append(lam)
 
               if res["plate"] in DECRANGES_FOR_PLATEID_DEDUP:
                 dec = dmsToDeg(decJ, ":")
@@ -200,8 +199,12 @@
               res["lam_max"] = lam_max
               res["lam_min"] = lam_min
               res["flux"] = numpy.array(flux)
-              res["spectral"] = numpy.array(spectral)
               res["spec_id"] = res["plate"] + "-" + res["objectid"][5:]
+              res["px_length"] = len(flux)
+
+              if lam_max!=LAMBDA_CUTOFF:
+                raise base.ReportableError("Spectrum %s, as it"
+                  " apparently starts blueward of 690 nm"%res["spec_id"])
 
               return res
           ]]></code>
@@ -320,7 +323,7 @@
           NULL::REAL AS ssa_spectSysError,
           'ABSOLUTE'::TEXT AS ssa_speccalib,
           50e-10::REAL AS ssa_specres,
-          NULL::spoly AS ssa_region,
+          NULL::spoly AS ssa_region
           magb, magr, plate
         FROM \schema.raw_spectra
         LEFT OUTER JOIN \schema.platemeta
@@ -422,7 +425,7 @@
       as the spectra from the Digital First Byurakan Survey (DFBS).
     </meta>
     <LOOP listItems="accref plate objectid ra dec pos sp_class px_length
-        spectral flux magb magr snr lam_min lam_max">
+        flux magb magr snr lam_min lam_max">
       <events>
         <column original="raw_spectra.\item"/>
       </events>
@@ -432,12 +435,26 @@
         <column original="platemeta.\item"/>
       </events>
     </LOOP>
+
+    <column name="spectral" type="real[]"
+      unit="m" ucd=""
+      tablehead="Spectral[]"
+      description="Spectral points of the extracted spectrum (wavelengths) 
+        as an array (that's actually the same for all spectra and only
+        given here as a convenience)."
+      verbLevel="30"/>
+
     <viewStatement>
       CREATE VIEW \curtable AS (
-        SELECT \colNames FROM (
-          SELECT * FROM 
-            \schema.raw_spectra
-            JOIN \schema.platemeta
+        SELECT \colNames
+        FROM (
+          SELECT 
+            a.*, 
+            b.*, 
+            '{\spectralBins}'::float[] AS spectral
+          FROM 
+            \schema.raw_spectra as a
+            JOIN \schema.platemeta as b
             ON (plate=plateid)) AS t)
     </viewStatement>
   </table>
@@ -526,12 +543,12 @@ autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>-->
 
   <regSuite title="DFBS regression">
     <regTest title="Spectra metadata plausible via SSA">
-      <url REQUEST="queryData" POS="29.0426958,-54.39563"
+      <url REQUEST="queryData" POS="29.0426958,20.373625"
         SIZE="0.001">getssa/ssap.xml</url>
       <code>
         row = self.getFirstVOTableRow()
         self.assertEqual(row['ssa_location'].asSODA(),	
-          '29.0426958306 -54.3956250028')
+          '29.0426958306 20.373624999')
         self.assertEqual(row["ssa_dstitle"], 
           'DFBSJ015610.24+202225.0 spectrum from fbs1163')
         self.assertEqual(row["ssa_bandpass"], "IIF")
@@ -569,10 +586,10 @@ autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>-->
         self.assertEqual(len(rows), 1)
         row = rows[0]
         self.assertAlmostEqual(row["lam_min"],  3.2060000e-07)
-        self.assertAlmostEqual(row["dec"],  305.604375)
+        self.assertAlmostEqual(row["dec"],  20.373625)
         self.assertEqual(row["emulsion"],  "IIF")
-        self.assertAlmostEqual(row["flux"][2], 0.09000000)
-        self.assertAlmostEqual(row["spectral"][1], 9.771999884833349e-07)
+        self.assertAlmostEqual(row["flux"][2], 28.86, 5)
+        self.assertAlmostEqual(row["spectral"][0], 6.9e-7)
       </code>
     </regTest>
   </regSuite>
