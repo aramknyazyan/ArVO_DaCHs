@@ -97,7 +97,7 @@
         unclassifiable because of lack of signal."
       verbLevel="25"/>
     <column name="px_length" 
-      unit="px" ucd=""
+      unit="pixel" ucd=""
       tablehead="#px"
       description="Number of pixels in the extracted spectrum"
       verbLevel="25"/>
@@ -150,7 +150,7 @@
     <embeddedGrammar notify="True">
       <iterator>
         <setup>
-          <code>
+          <code><![CDATA[
             import re
             import numpy
             import zipfile
@@ -204,7 +204,7 @@
               res["spec_id"] = res["plate"] + "-" + res["objectid"][5:]
 
               return res
-          </code>
+          ]]></code>
         </setup>
         <code>
           zipSource = zipfile.ZipFile(self.sourceToken, mode="r")
