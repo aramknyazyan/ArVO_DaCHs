@@ -373,6 +373,16 @@
       tablehead="Emulsion"
       description="Emulsion used in this plate from WFPDB."
       verbLevel="1"/>
+    <column name="ra_center"
+      ucd="pos.eq.ra" unit="deg"
+      tablehead="Center RA"
+      description="Center of plate in RA (ICRS)"
+      verbLevel="1"/>
+    <column name="dec_center"
+      ucd="pos.eq.dec" unit="deg"
+      tablehead="Center Dec"
+      description="Center of plate in Dec (ICRS)"
+      verbLevel="1"/>
   </table>
 
   <data id="import_platemeta">
@@ -390,7 +400,8 @@
 
           f = utils.urlopenRemote(self.sourceToken, data=urlencode({
             "LANG": "ADQL",
-            "QUERY": "select object as plateid, epoch, exptime, emulsion"
+            "QUERY": "select object as plateid, epoch, exptime, emulsion,"
+              " raj2000, dej2000"
               " from wfpdb.main"
               " where object is not null and object!=''"
               "   and instr_id='BYU102A'"
@@ -412,6 +423,8 @@
 
             row["epoch"] = dateTimeToMJD(jYearToDateTime(row["epoch"]))
             row["plateid"] = row["plateid"].replace("FBS ", "fbs")
+            row["ra_center"] = row["raj2000"]
+            row["dec_center"] = row["dej2000"]
             yield row
         </code>
       </iterator>
