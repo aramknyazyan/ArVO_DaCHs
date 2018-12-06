@@ -10,9 +10,15 @@
     Lipovetski and J.A. Stepanian in 1965-1980 with the Byurakan Observatory
     102/132/213 cm (40"/52"/84") Schmidt telescope using 1.5 deg. prism. Each
     FBS plate contains low-dispersion spectra of some 15,000-20,000 objects;
-    the whole survey consists of about 20,000,000 objects. The objects
-    selection can be made by their colour, broad emission or absorption lines,
-    SED in order to discover, classify and investigate them. The original aim
+    the whole survey consists of about 20,000,000 objects.
+    
+  </meta>
+
+  <meta name="_longdoc" format="rst">
+    History of this Data Collection
+    ===============================
+
+    The original aim of the First Byurakan Survey
     was to search for galaxies with UV excess (:bibcode:`1986ApJS...62..751M`,
     Markarian et al. 1989,1997- catalogue No. VII/172 at CDS). Successively,
     the amount of spectral information contained in the plates allowed the
@@ -27,6 +33,7 @@
     made clear the need of open access to FBS for the entire astronomical
     community.
   </meta>
+
   <meta name="creationDate">2017-11-28T10:50:00Z</meta>
   <meta name="subject">objective prism</meta>
   <meta name="subject">spectroscopy</meta>
@@ -52,6 +59,8 @@
       descriptions.  This also contains spectral and flux points
       in array-valued columns.
     </meta>
+
+    <publish sets="ivo_managed,local"/>
 
 <!--    <primary>spec_id</primary> -->
     <index columns="plate"/>
@@ -278,6 +287,7 @@
     <mixin>//ssap#simpleCoverage</mixin>
     <mixin>//obscore#publishSSAPMIXC</mixin>
     
+    
     <column original="magb"/>
     <column original="magr"/>
     <column original="plate"/>
@@ -324,7 +334,7 @@
           NULL::REAL AS ssa_spectSysError,
           'ABSOLUTE'::TEXT AS ssa_speccalib,
           50e-10::REAL AS ssa_specres,
-          NULL::spoly AS ssa_region
+          NULL::spoly AS ssa_region,
           magb, magr, plate
         FROM \schema.raw_spectra
         LEFT OUTER JOIN \schema.platemeta
@@ -438,7 +448,7 @@
     <meta name="description">This table contains basic metadata as well
       as the spectra from the Digital First Byurakan Survey (DFBS).
     </meta>
-    <LOOP listItems="accref plate objectid ra dec pos sp_class px_length
+    <LOOP listItems="accref plate spec_id ra dec pos sp_class px_length
         flux magb magr snr lam_min lam_max">
       <events>
         <column original="raw_spectra.\item"/>
@@ -539,17 +549,21 @@
       <condDesc buildFrom="ssa_location"/>
       <condDesc buildFrom="magb"/>
     </dbCore>
-<!--    <outputTable
-autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>-->
+    <outputTable
+      autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb, ssa_snr"/>
   </service>
 
   <service id="getssa" allowed="ssap.xml,form">
     <meta name="shortName">DFBS SSAP</meta>
+    <meta name="title">DFBS Spectra Query Service</meta>
     <meta name="ssap.dataSource">pointed</meta>
     <meta name="ssap.testQuery">MAXREC=1</meta>
     <meta name="ssap.creationType">archival</meta>
     <meta name="ssap.complianceLevel">query</meta>
 
+    <publish sets="ivo_managed" render="ssap.xml"/>
+    <publish sets="ivo_managed,local" render="form" service="web"/>
+    
     <ssapCore queriedTable="ssa">
       <FEED source="//ssap#hcd_condDescs"/>
     </ssapCore>
@@ -580,7 +594,7 @@ autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>-->
     </regTest>
 
     <regTest title="Datalink dataset generation works">
-      <url ID="ivo://org.gavo.dc/~?dfbsspec/q/fbs1163-015613.29+201136.2"
+      <url ID="ivo://byu.arvo/~?dfbsspec/q/fbs1163-015613.29+201136.2"
         >sdl/dlget</url>
       <code>
         self.assertHasStrings('utype="spec:Spectrum"', 'name="citation"',
@@ -593,7 +607,7 @@ autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>-->
 
     <regTest title="spectra TAP table present">
       <url parSet="TAP" QUERY="SELECT * FROM dfbsspec.spectra
-        WHERE objectid='DFBSJ015610.24+202225.0'"
+        WHERE spec_id='fbs1163-015610.24+202225.0'"
         >/tap/sync</url>
       <code>
         rows = self.getVOTableRows()
@@ -609,6 +623,3 @@ autoCols="accref,accsize,ssa_location,ssa_dstitle,magr,magb,dlurl,ssa_snr"/>-->
   </regSuite>
 
 </resource>
-
-<!-- vi:et:sta:sw=2
--->
