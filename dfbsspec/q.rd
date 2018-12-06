@@ -347,7 +347,7 @@
   </data>
 
   <table id="platemeta" onDisk="True" primary="plateid"
-      adql="hidden">
+      adql="true">
     <meta name="description">Metadata for the plates making up the
     Byurakan spectral surveys, obtained from the WFPDB.</meta>
 
