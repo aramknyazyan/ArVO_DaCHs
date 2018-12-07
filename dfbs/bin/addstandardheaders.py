@@ -16,7 +16,9 @@ from astropy import wcs
 import numpy
 
 from gavo import api
+from gavo import base
 from gavo import utils
+from gavo.base import coords
 from gavo.utils import fitstools
 from gavo.helpers import fitstricks
 
@@ -63,6 +65,8 @@ class PAHeaderAdder(api.HeaderProcessor):
     def getPrimaryHeader(self, srcName):
         # Some FBS headers have bad non-ASCII in them that confuses pyfits
         # so badly that nothing works.  We have to manually defuse things.
+        if os.path.getsize(srcName)==0:
+          raise base.SkipThis()
         with open(srcName) as f:
             hdu = fitstools._TempHDU()
             rawBytes = fitstools.readHeaderBytes(f, 40).replace("\001", " ")
@@ -97,6 +101,8 @@ class PAHeaderAdder(api.HeaderProcessor):
                 "UT %H:%M")
             kws["TIMEFLAG"] = "uncertain"
             kws["DATE_OBS"] = dateOfObs.date().isoformat()
+            # Areg says: it's almost always 20 minutes
+            kws["EXPTIME"] = 20*60
         else:
             startOfObs = dateOfObs-datetime.timedelta(
                 seconds=meta["exptime"]/2)
@@ -111,15 +117,22 @@ class PAHeaderAdder(api.HeaderProcessor):
 
         if meta["time_problem"]=="Epoch missing":
             kws["TIMEFLAG"] = "missing"
+        
+        if False:
+          plateCenter = coords.getCenterFromWCSFields(
+            coords.getWCS(hdr))
+        else:
+          # TODO: when there's either a good WCS header or DaCHS
+          # can better deal with DSS calibration, remove this
+          # and the "if False" above.
+          plateCenter = (meta["raj2000"], meta["dej2000"])
 
         hdr = fitstricks.makeHeaderFromTemplate(
             fitstricks.WFPDB_TEMPLATE,
             originalHeader=hdr,
             DATEORIG=dateOfObs.date().isoformat(),
-            RA_DEG=meta["raj2000"],
-            DEC_DEG=meta["dej2000"],
-            RA=utils.degToHms(meta["raj2000"], ":"),
-            DEC=utils.degToDms(meta["dej2000"], ":"),
+            RA_ORIG=utils.degToHms(meta["raj2000"], ":"),
+            DEC_ORIG=utils.degToDms(meta["dej2000"], ":"),
             OBJECT=meta["object"],
             OBJTYPE=meta["object_type"],
             NUMEXP=1,
@@ -148,11 +161,17 @@ class PAHeaderAdder(api.HeaderProcessor):
             FOV2=4.1,
             EMULSION=meta["emulsion"],
 
+            RA=utils.degToHms(plateCenter[0]),
+            DEC=utils.degToDms(plateCenter[1]),
+            RA_DEG=plateCenter[0],
+            DEC_DEG=plateCenter[1],
+
             YEAR_AVG=meta["epoch"],
             SCANRES1=1600,
             SCANRES2=1600,
             PIXSIZE1=15.875,
             PIXSIZE2=15.875,
+            SCANAUTH="Areg Mickaelian",
 
             ORIGIN="Byurakan",
 
