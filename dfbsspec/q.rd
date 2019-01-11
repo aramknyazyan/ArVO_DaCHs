@@ -430,7 +430,7 @@
       spectralUnit="m">//ssap#mixc</mixin>
     <mixin>//ssap#simpleCoverage</mixin>
     <mixin>//obscore#publishSSAPMIXC</mixin>
-    <meta name="_associatedDatalinkSvc">
+    <meta name="_associatedDatalinkService">
       <meta name="serviceId">sdl</meta>
       <meta name="idColumn">ssa_pubDID</meta>
     </meta>
