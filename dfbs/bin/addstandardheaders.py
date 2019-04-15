@@ -72,7 +72,12 @@ _DSS_CALIBRATION_KEYS = [
     "AMDY12",  
     "AMDY13",
     "XPIXELSZ",
-    "YPIXELSZ"]
+    "YPIXELSZ",
+    "EQUINOX",
+    "CNPIX1",
+    "CNPIX2",
+    "PLTSCALE",
+    "PLTLABEL"]
 
 
 class PAHeaderAdder(api.HeaderProcessor):
@@ -132,7 +137,8 @@ class PAHeaderAdder(api.HeaderProcessor):
     def _mungeHeader(self, srcName, hdr):
         for card in hdr.cards:
             card.verify("fix")
-            if card.keyword in _KEYS_PROBABLY_BROKEN:
+            if (card.keyword in _KEYS_PROBABLY_BROKEN 
+                    and isinstance(card.rawvalue, basestring)):
                 card.value = float(re.sub(" .*", "", card.rawvalue))
            
             if isinstance(card.value, basestring):
