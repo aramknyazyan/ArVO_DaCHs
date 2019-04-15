@@ -246,7 +246,7 @@ class PAHeaderAdder(api.HeaderProcessor):
         ax1, ax2 = hdr["NAXIS1"], hdr["NAXIS2"]
         mesh = numpy.array([
                 (random.random()*ax2, random.random()*ax1) 
-                for i in range(1000)])
+                for i in range(10000)])
         trafo = wcs.WCS(hdr)
         transformed = trafo.all_pix2world(mesh, 1)
 
@@ -266,6 +266,8 @@ class PAHeaderAdder(api.HeaderProcessor):
         
         # run fits-wcs and slurp in the headers it generates
         subprocess.check_call(["fit-wcs", "-s2", 
+            "-W", str(hdr["NAXIS2"]), "-H", str(hdr["NAXIS1"]),
+            "-C",
             "-c", "correspondence.fits", "-o", "newcalib.fits"])
         with open("newcalib.fits", "rb") as f:
             newHeader = fitstools.readPrimaryHeaderQuick(f)
