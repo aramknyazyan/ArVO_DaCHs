@@ -2,15 +2,16 @@
 This script will update the headers of the FBS plate scans with
 according to the Tuvikene et al plate archive standard,
 https://www.plate-archive.org/wiki/index.php/FITS_header_format
-
-[TODO: Fix the WCS, too]
 """
 
 import warnings
 warnings.filterwarnings('ignore', module='astropy.io.fits.verify')
 
+import datetime
 import re
 import os
+import random
+import subprocess
 
 from astropy import wcs
 import numpy
@@ -20,10 +21,59 @@ from gavo import base
 from gavo import utils
 from gavo.base import coords
 from gavo.utils import fitstools
+from gavo.utils import pyfits
 from gavo.helpers import fitstricks
 
 _KEYS_PROBABLY_BROKEN = set([
     "OBJCTX", "OBJCTY"])
+
+_DSS_CALIBRATION_KEYS = [
+    "OBJCTRA",
+    "OBJCTDEC",
+    "OBJCTX",
+    "OBJCTY",
+    "PPO1",    
+    "PPO2",    
+    "PPO3",    
+    "PPO4",    
+    "PPO5",    
+    "PPO6",    
+    "PLTRAH",  
+    "PLTRAM",  
+    "PLTRAS",  
+    "PLTDECSN",
+    "PLTDECD", 
+    "PLTDECM", 
+    "PLTDECS", 
+    "AMDX1",   
+    "AMDX2",   
+    "AMDX3",   
+    "AMDX4",   
+    "AMDX5",   
+    "AMDX6",   
+    "AMDX7",   
+    "AMDX8",   
+    "AMDX9",   
+    "AMDX10",  
+    "AMDX11",  
+    "AMDX12",  
+    "AMDX13",  
+    "AMDY1",   
+    "AMDY2",   
+    "AMDY3",   
+    "AMDY4",   
+    "AMDY5",   
+    "AMDY6",   
+    "AMDY7",   
+    "AMDY8",   
+    "AMDY9",   
+    "AMDY10",  
+    "AMDY11",  
+    "AMDY12",  
+    "AMDY13",
+    "XPIXELSZ",
+    "YPIXELSZ"]
+
 
 class PAHeaderAdder(api.HeaderProcessor):
     # PA as in "Plate Archive"
@@ -31,12 +81,12 @@ class PAHeaderAdder(api.HeaderProcessor):
     def _createAuxiliaries(self, dd):
         from urllib import urlencode
         from gavo import votable
-        from gavo.stc import jYearToDateTime, dateTimeToMJD
 
         if os.path.exists("q.cache"):
             f = open("q.cache")
         else:
-            f = utils.urlopenRemote("http://dc.g-vo.org/tap/sync", data=urlencode({
+            f = utils.urlopenRemote("http://dc.g-vo.org/tap/sync", 
+                data=urlencode({
               "LANG": "ADQL",
               "QUERY": "select *"
                 " from wfpdb.main"
@@ -61,7 +111,6 @@ class PAHeaderAdder(api.HeaderProcessor):
               row["object"] = "FBS 0449a"
             self.platemeta[plateid] = row
 
-
     def getPrimaryHeader(self, srcName):
         # Some FBS headers have bad non-ASCII in them that confuses pyfits
         # so badly that nothing works.  We have to manually defuse things.
@@ -78,7 +127,7 @@ class PAHeaderAdder(api.HeaderProcessor):
         return hdu.header
 
     def _isProcessed(self, srcName):
-        return "XXX" in self.getPrimaryHeader(srcName)
+        return "A_ORDER" in self.getPrimaryHeader(srcName)
     
     def _mungeHeader(self, srcName, hdr):
         for card in hdr.cards:
@@ -118,14 +167,15 @@ class PAHeaderAdder(api.HeaderProcessor):
         if meta["time_problem"]=="Epoch missing":
             kws["TIMEFLAG"] = "missing"
         
-        if False:
-          plateCenter = coords.getCenterFromWCSFields(
-            coords.getWCS(hdr))
-        else:
-          # TODO: when there's either a good WCS header or DaCHS
-          # can better deal with DSS calibration, remove this
-          # and the "if False" above.
-          plateCenter = (meta["raj2000"], meta["dej2000"])
+        wcsFields = self.compute_WCS(hdr)
+        kws.update(wcsFields)
+        for kw_name in _DSS_CALIBRATION_KEYS:
+            if kw_name in hdr:
+                del hdr[kw_name]
+#        TODO: Add history
+
+        kws["NAXIS1"], kws["NAXIS2"] = hdr["NAXIS1"], hdr["NAXIS2"]
+        plateCenter = coords.getCenterFromWCSFields(kws)
 
         hdr = fitstricks.makeHeaderFromTemplate(
             fitstricks.WFPDB_TEMPLATE,
@@ -178,6 +228,43 @@ class PAHeaderAdder(api.HeaderProcessor):
             **kws)
             
         return hdr
+
+    def compute_WCS(self, hdr):
+        """returns a modern WCS header for anything astropy.WCS can deal
+        with.
+
+        This uses fit-wcs from astrometry.net.
+        """
+        # Create a sufficient number of x,y <-> RA, Dec pairs based on the
+        # existing calibration.
+        ax1, ax2 = hdr["NAXIS1"], hdr["NAXIS2"]
+        mesh = numpy.array([
+                (random.random()*ax2, random.random()*ax1) 
+                for i in range(1000)])
+        trafo = wcs.WCS(hdr)
+        transformed = trafo.all_pix2world(mesh, 1)
+
+        # Make a FITS input for fit-wcs from that data
+        pyfits.HDUList([
+            pyfits.PrimaryHDU(),
+            pyfits.BinTableHDU.from_columns(
+                pyfits.ColDefs([
+                    pyfits.Column(name="FIELD_X", format='E', array=mesh[:,0]),
+                    pyfits.Column(name="FIELD_Y", format='E', array=mesh[:,1]),
+                    pyfits.Column(name="INDEX_RA", format='E', 
+                        array=transformed[:,0]),
+                    pyfits.Column(name="INDEX_DEC", format='E', 
+                        array=transformed[:,1]),
+                ]))]
+            ).writeto("correspondence.fits", clobber=1)
+        
+        # run fits-wcs and slurp in the headers it generates
+        subprocess.check_call(["fit-wcs", "-s2", 
+            "-c", "correspondence.fits", "-o", "newcalib.fits"])
+        with open("newcalib.fits", "rb") as f:
+            newHeader = fitstools.readPrimaryHeaderQuick(f)
+        
+        return newHeader
 
 if __name__=="__main__":
     api.procmain(PAHeaderAdder, "dfbs/q", "import")
