@@ -221,6 +221,9 @@ class PAHeaderAdder(api.HeaderProcessor):
             DEC=utils.degToDms(plateCenter[1]),
             RA_DEG=plateCenter[0],
             DEC_DEG=plateCenter[1],
+            # ICRS might be a bit questionable (we don't actually know what
+            # the basic catalog was).
+            RADESYS="ICRS",
 
             YEAR_AVG=meta["epoch"],
             SCANRES1=1600,
@@ -235,7 +238,7 @@ class PAHeaderAdder(api.HeaderProcessor):
             
         return hdr
 
-    def compute_WCS(self, hdr):
+    def compute_WCS(self, hdr, subsample=200):
         """returns a modern WCS header for anything astropy.WCS can deal
         with.
 
@@ -243,10 +246,10 @@ class PAHeaderAdder(api.HeaderProcessor):
         """
         # Create a sufficient number of x,y <-> RA, Dec pairs based on the
         # existing calibration.
-        ax1, ax2 = hdr["NAXIS1"], hdr["NAXIS2"]
-        mesh = numpy.array([
-                (random.random()*ax2, random.random()*ax1) 
-                for i in range(10000)])
+        ax1, ax2 = hdr["NAXIS2"], hdr["NAXIS1"]
+        mesh = numpy.array([(x,y)
+                for x in range(1, ax1, subsample)
+                for y in range(1, ax2, subsample)])
         trafo = wcs.WCS(hdr)
         transformed = trafo.all_pix2world(mesh, 1)
 
@@ -255,19 +258,19 @@ class PAHeaderAdder(api.HeaderProcessor):
             pyfits.PrimaryHDU(),
             pyfits.BinTableHDU.from_columns(
                 pyfits.ColDefs([
-                    pyfits.Column(name="FIELD_X", format='E', array=mesh[:,0]),
-                    pyfits.Column(name="FIELD_Y", format='E', array=mesh[:,1]),
-                    pyfits.Column(name="INDEX_RA", format='E', 
+                    pyfits.Column(name="FIELD_X", format='D', array=mesh[:,0]),
+                    pyfits.Column(name="FIELD_Y", format='D', array=mesh[:,1]),
+                    pyfits.Column(name="INDEX_RA", format='D', 
                         array=transformed[:,0]),
-                    pyfits.Column(name="INDEX_DEC", format='E', 
+                    pyfits.Column(name="INDEX_DEC", format='D', 
                         array=transformed[:,1]),
                 ]))]
             ).writeto("correspondence.fits", clobber=1)
         
         # run fits-wcs and slurp in the headers it generates
-        subprocess.check_call(["fit-wcs", "-s2", 
-            "-W", str(hdr["NAXIS2"]), "-H", str(hdr["NAXIS1"]),
-            "-C",
+        subprocess.check_call(["fit-wcs", 
+            "-W", str(hdr["NAXIS1"]), "-H", str(hdr["NAXIS2"]),
+            '-s2',
             "-c", "correspondence.fits", "-o", "newcalib.fits"])
         with open("newcalib.fits", "rb") as f:
             newHeader = fitstools.readPrimaryHeaderQuick(f)

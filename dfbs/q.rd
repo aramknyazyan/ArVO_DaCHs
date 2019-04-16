@@ -64,21 +64,18 @@
     <make table="main">
       <rowmaker>
         <apply procDef="//siap#setMeta">
-          <bind key="dateObs">None</bind> <!-- TODO -->
-          <bind key="bandpassId">None</bind> <!-- TODO: use emulsion, I'd say
-          -->
+          <bind key="dateObs">parseDate(@DATE_OBS)</bind>
+          <bind key="bandpassId">@EMULSION</bind>
           <bind key="pixflags">"C"</bind>
-          <!-- TODO: add dateObs and emulsion here -->
-          <bind key="title">@plate</bind>
+          <bind key="title">"Byurakan %s (%s)"%(@platenum, @EMULSION)</bind>
         </apply>
 
-<!--        <apply procDef="//siap#getBandFromFilter"/> -->
+        <apply procDef="//siap#getBandFromFilter"/>
 
         <apply procDef="//siap#computePGS"/>
 
         <map key="plate" source="PLATENUM"/>
-<!-- TODO: fix this -->
-        <map key="exptime">None</map>
+        <map key="exptime">@EXPTIME</map>
       </rowmaker>
     </make>
   </data>
