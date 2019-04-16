@@ -136,6 +136,19 @@
           name="genFITSDesc">
         <bind key="accrefPrefix">'dfbs/data'</bind>
         <bind key="qnd">True</bind>
+        <code>
+          if pubDID.startswith("plate/"):
+            # it's a plate number, probably from the spectral service;
+            # find the accref from our main table
+            with base.getTableConn() as conn:
+              res = list(conn.query("select accref from \schema.main"
+                " where plate=%(plate)s",
+                {"plate": pubDID[6:]}))
+            if not res:
+              raise base.NotFoundError("plate", pubDID[6:], "FBS plates")
+            return getFITSDescriptor(getStandardPubDID(res[0][0]),
+              accrefPrefix, cls=descClass, qnd=qnd)
+        </code>
       </descriptorGenerator>
       <FEED source="//soda#fits_standardDLFuncs"/>
     </datalinkCore>
@@ -145,7 +158,7 @@
     <!-- see http://docs.g-vo.org/DaCHS/ref.html#regression-testing
       for more info on these. -->
 
-<!--    <regTest title="dfbs SIAP serves some data">
+    <regTest title="dfbs SIAP serves some data">
       <url POS="28.394,19.222" SIZE="0.1,0.1"
         >i/siap.xml</url>
       <code>
@@ -153,7 +166,7 @@
           "%some characteristic string returned by the query%",
           "%another characteristic string returned by the query%")
       </code>
-    </regTest> -->
+    </regTest>
 
     <regTest title="dfbs datalink meta returns links">
       <url ID="ivo://org.gavo.dc/~?dfbs/data/FBS0900_COR.FITS">dl/dlmeta</url>
@@ -166,6 +179,19 @@
         self.assertTrue(
           bySemantics["#this"].endswith(
             "/getproduct/dfbs/data/FBS0900_COR.FITS"))
+      </code>
+    </regTest>
+
+    <regTest title="fbs datalink cutout works with magic plate id as well.">
+      <url ID="plate/fbs0900"
+        CIRCLE="335.2 39.95 0.02">dl/dlget</url>
+      <code>
+        self.assertHasStrings("NAXIS1  =                   94")
+        first_data_block = 3
+        # this test needs updating when the calibration is fixed
+        self.assertEqual(
+          self.data[2880*first_data_block:2880*first_data_block+10],
+          '\\x0e\\xea\\x0e\\xc2\\x0e\\x05\\r\\xc3\\x0f"')
       </code>
     </regTest>
   </regSuite>

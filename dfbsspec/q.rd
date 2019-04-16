@@ -439,6 +439,12 @@
     <column original="magr"/>
     <column original="plate"/>
 
+    <column name="cutout_link" type="text"
+    	ucd="meta.ref.url"
+    	tablehead="Image"
+    	description="Cutout of the image this spectrum was extracted from"
+    	verbLevel="15"/>
+
     <viewStatement>
     CREATE VIEW \curtable AS (
       SELECT \colNames FROM (
@@ -482,7 +488,12 @@
           'ABSOLUTE'::TEXT AS ssa_speccalib,
           50e-10::REAL AS ssa_specres,
           NULL::spoly AS ssa_region,
-          magb, magr, plate
+          magb, magr, plate,
+          '\getConfig{web}{serverURL}/dfbs/q/dl/dlget?ID=plate/' 
+          	|| plate
+          	|| '&amp;CIRCLE='
+          	|| DEGREES(long(pos)) || ' '
+          	|| DEGREES(lat(pos)) || ' 0.02' AS cutout_link
         FROM \schema.raw_spectra
         LEFT OUTER JOIN \schema.platemeta
         ON (plateid=plate)
