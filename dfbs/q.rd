@@ -26,6 +26,10 @@
   </meta>
 
   <table id="main" onDisk="True" mixin="//siap#pgs" adql="True">
+    <meta name="_associatedDatalinkService">
+      <meta name="serviceId">dl</meta>
+      <meta name="idColumn">publisher_did</meta>
+    </meta>
 
     <mixin
       calibLevel="2"
@@ -43,6 +47,10 @@
       tablehead="Exptime"
       description="Exposure time."
       verbLevel="15"/>
+     <column name="publisher_did" type="text"
+      ucd="meta.ref.uri;meta.curation"
+      description="Dataset identifier assigned by the publisher."
+      verbLevel="25"/>
   </table>
 
   <coverage>
@@ -51,8 +59,8 @@
 
   <data id="import">
     <sources recurse="True">
-    	<pattern>data/*.fits</pattern>
-    	<pattern>data/*.FITS</pattern>
+      <pattern>data/*.fits</pattern>
+      <pattern>data/*.FITS</pattern>
     </sources>
 
     <fitsProdGrammar>
@@ -67,7 +75,7 @@
           <bind key="dateObs">parseDate(@DATE_OBS)</bind>
           <bind key="bandpassId">@EMULSION</bind>
           <bind key="pixflags">"C"</bind>
-          <bind key="title">"Byurakan %s (%s)"%(@platenum, @EMULSION)</bind>
+          <bind key="title">"Byurakan %s (%s)"%(@PLATENUM, @EMULSION)</bind>
         </apply>
 
         <apply procDef="//siap#getBandFromFilter"/>
@@ -76,11 +84,13 @@
 
         <map key="plate" source="PLATENUM"/>
         <map key="exptime">@EXPTIME</map>
+        <map key="publisher_did">\standardPubDID</map>
       </rowmaker>
     </make>
   </data>
 
   <service id="i" allowed="form,siap.xml">
+    <meta name="description">First Byurakan survey plate scan service</meta>
     <meta name="shortName">DFBS plates</meta>
     <meta name="sia.type">Pointed</meta>
     <meta name="testQuery.pos.ra">28.394</meta>
@@ -100,13 +110,42 @@
         </inputKey>
       </condDesc> 
     </dbCore>
+
+    <outputTable>
+      <outputField name="dlurl" type="text" select="accref"
+        tablehead="Datalink Access"
+        description="URL of a datalink document for the dataset
+          (cutouts, different formats, etc)">
+        <formatter>
+          yield T.a(href=getDatalinkMetaLink(
+            rd.getById("dl"), data)
+            )["Datalink"]
+        </formatter>
+        <property name="targetType"
+          >application/x-votable+xml;content=datalink</property>
+        <property name="targetTitle">Datalink</property>
+      </outputField>
+      <autoCols>*</autoCols>
+    </outputTable>
+  </service>
+
+  <service id="dl" allowed="dlget,dlmeta">
+    <meta name="description">Datalink for Byurakan survey plates</meta>
+    <datalinkCore>
+      <descriptorGenerator procDef="//soda#fits_genDesc"
+          name="genFITSDesc">
+        <bind key="accrefPrefix">'dfbs/data'</bind>
+        <bind key="qnd">True</bind>
+      </descriptorGenerator>
+      <FEED source="//soda#fits_standardDLFuncs"/>
+    </datalinkCore>
   </service>
 
   <regSuite title="dfbs regression">
     <!-- see http://docs.g-vo.org/DaCHS/ref.html#regression-testing
       for more info on these. -->
 
-    <regTest title="dfbs SIAP serves some data">
+<!--    <regTest title="dfbs SIAP serves some data">
       <url POS="28.394,19.222" SIZE="0.1,0.1"
         >i/siap.xml</url>
       <code>
@@ -114,6 +153,23 @@
           "%some characteristic string returned by the query%",
           "%another characteristic string returned by the query%")
       </code>
+    </regTest> -->
+
+    <regTest title="dfbs datalink meta returns links">
+      <url ID="ivo://org.gavo.dc/~?dfbs/data/FBS0900_COR.FITS">dl/dlmeta</url>
+      <code>
+        bySemantics = dict((row["semantics"], row["access_url"])
+          for row in self.getVOTableRows())
+        self.assertTrue(
+          bySemantics["#preview"].endswith(
+            "/getproduct/dfbs/data/FBS0900_COR.FITS?preview=True"))
+        self.assertTrue(
+          bySemantics["#this"].endswith(
+            "/getproduct/dfbs/data/FBS0900_COR.FITS"))
+      </code>
     </regTest>
   </regSuite>
 </resource>
+
+<!-- vi:et:sta:sw=2
+-->
