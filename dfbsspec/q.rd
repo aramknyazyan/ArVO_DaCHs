@@ -439,12 +439,6 @@
     <column original="magr"/>
     <column original="plate"/>
 
-    <column name="cutout_link" type="text"
-    	ucd="meta.ref.url"
-    	tablehead="Image"
-    	description="Cutout of the image this spectrum was extracted from"
-    	verbLevel="15"/>
-
     <viewStatement>
     CREATE VIEW \curtable AS (
       SELECT \colNames FROM (
@@ -488,12 +482,7 @@
           'ABSOLUTE'::TEXT AS ssa_speccalib,
           50e-10::REAL AS ssa_specres,
           NULL::spoly AS ssa_region,
-          magb, magr, plate,
-          '\getConfig{web}{serverURL}/dfbs/q/dl/dlget?ID=plate/' 
-          	|| plate
-          	|| '&amp;CIRCLE='
-          	|| DEGREES(long(pos)) || ' '
-          	|| DEGREES(lat(pos)) || ' 0.02' AS cutout_link
+          magb, magr, plate
         FROM \schema.raw_spectra
         LEFT OUTER JOIN \schema.platemeta
         ON (plateid=plate)
@@ -625,6 +614,11 @@
         as an array (that's actually the same for all spectra and only
         given here as a convenience)."
       verbLevel="30"/>
+    <column name="cutout_link" type="text"
+    	ucd="meta.ref.url"
+    	tablehead="Image"
+    	description="Cutout of the image this spectrum was extracted from"
+    	verbLevel="15"/>
 
     <viewStatement>
       CREATE VIEW \curtable AS (
@@ -633,7 +627,12 @@
           SELECT 
             a.*, 
             b.*, 
-            '{\spectralBins}'::float[] AS spectral
+            '{\spectralBins}'::float[] AS spectral,
+          '\getConfig{web}{serverURL}/dfbs/q/dl/dlget?ID=plate/' 
+          	|| plate
+          	|| '&amp;CIRCLE='
+          	|| DEGREES(long(pos)) || ' '
+          	|| DEGREES(lat(pos)) || ' 0.02' AS cutout_link
           FROM 
             \schema.raw_spectra as a
             JOIN \schema.platemeta as b
