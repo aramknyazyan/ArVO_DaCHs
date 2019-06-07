@@ -1,21 +1,21 @@
 This is a service publishing the spectra from the first Byurakan
 spectral survey.
 
-We got the data from Daniel, who in turn got it from the old Italian
-web service.
+The input data is a dump of the mysql database behind the Italian
+spectra server.
 
-The test data assumed by the tests is in the folder test-data.  Copy it
-into data/ to build a test service; do *not* copy it into data/ of the
-live site, as the spectra are already in the full data set, and you'd
-cause a primary key error.  Also, one of the spectra is deliberately
-broken; you should get exactly one message about a Botched Spectrum and
-29 ingested rows.
+The test data I made with
+
+zcat byurakan-spettri.sql.gz | head -490 | tail -60 | gzip > sample.sql.gz
 
 TODO
 
 * Can we add error estimates (Areg's ideas: use background level,
   perhaps measured by limiting magnitude)
-* Figure out what "spectrum class" means
+* Do we want x, y, and angle in the database table?  If so, what about
+  units, orientation, etc?
+
+
 
 The duplicated plateid problem
 ------------------------------

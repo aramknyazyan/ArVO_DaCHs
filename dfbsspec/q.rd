@@ -150,7 +150,7 @@
     With the resulting table, to do this service and execute a query like::
 
       SELECT
-      spec_id, spectral, flux
+      specid, spectral, flux
       FROM dfbsspec.spectra AS db
       JOIN TAP_UPLOAD.t1 AS tc
       ON DISTANCE(tc.ra, tc.dec, db.ra, db.dec)<5./3600.
@@ -206,13 +206,13 @@
 
     <publish sets="ivo_managed,local"/>
 
-<!--    <primary>spec_id</primary> -->
+    <primary>specid</primary>
     <index columns="plate"/>
     <index columns="accref"/>
-    <index columns="spec_id"/>
+    <index columns="specid"/>
     <index columns="pos" method="GIST"/>
 
-    <column name="spec_id" type="text"
+    <column name="specid" type="text"
       ucd="meta.id;meta.main"
       tablehead="ID"
       description="Identifier of the spectrum built from the plate identifier,
@@ -290,20 +290,33 @@
       tablehead="λ_max"
       description="Maximal wavelength in this spectrum."
       verbLevel="15"/>
+
+    <column name="ell"
+      unit="???"
+      tablehead="???"
+      description="???"
+      verbLevel="25"/>
+    <column name="sky"
+      unit="???"
+      tablehead="???"
+      description="???"
+      verbLevel="25"/>
   </table>
 
   <data id="import">
     <recreateAfter>make_ssa_view</recreateAfter>
     <recreateAfter>make_tap_view</recreateAfter>
     <property key="previewDir">previews</property>
-    <sources pattern="data/*.zip"/>
+    <sources pattern="data/*.sql.gz"/>
+    <!-- this parses from the SQL dump we got from Italy.  We
+    	trust all the fbs_* tables have the same structure. -->
     <embeddedGrammar notify="True">
       <iterator>
         <setup>
           <code><![CDATA[
+            import gzip
             import re
             import numpy
-            import zipfile
             
             # see README for plate id disambiguation
             DECRANGES_FOR_PLATEID_DEDUP = {
@@ -317,7 +330,10 @@
 
             def parse_a_spectrum(src_f):
               """returns a rawdict from an open file.
-              
+             
+              TODO: Remove this function; it's no longer used.
+              I just need to be reminded of the LAMBDA_CUTOFF thing.
+
               This can raise all kinds of exceptions depending on
               the way in which the source is broken.
               """
@@ -353,39 +369,88 @@
               res["lam_max"] = lam_max
               res["lam_min"] = lam_min
               res["flux"] = numpy.array(flux)
-              res["spec_id"] = res["plate"] + "-" + res["objectid"][5:]
+              res["specid"] = res["plate"] + "-" + res["objectid"][5:]
               res["px_length"] = len(flux)
 
               if lam_max!=LAMBDA_CUTOFF:
                 raise base.ReportableError("Spectrum %s, as it"
-                  " apparently starts blueward of 690 nm"%res["spec_id"])
+                  " apparently starts blueward of 690 nm"%res["specid"])
 
               return res
+
+            def parseSpectraFromDump(inputLine):
+              """this assumes the schema
+
+              `id` int(11) NOT NULL AUTO_INCREMENT,
+              `nome` varchar(55) DEFAULT NULL,
+              `ra1` varchar(20) DEFAULT NULL,
+              `dec1` varchar(20) DEFAULT NULL,
+              `ra2` double DEFAULT '0',
+              `dec2` double DEFAULT '0',
+              `magB` varchar(20) DEFAULT NULL,
+              `magR` varchar(20) DEFAULT NULL,
+              `Lun` varchar(20) DEFAULT NULL,
+              `redBord` varchar(20) DEFAULT NULL,
+              `sn` varchar(20) DEFAULT NULL,
+              `x` int(11) DEFAULT NULL,
+              `y` int(11) DEFAULT NULL,
+              `angolo` varchar(20) DEFAULT NULL,
+              `ell` varchar(20) DEFAULT NULL,
+              `sky` varchar(20) DEFAULT NULL,
+              `profilo` text,
+              `classe` varchar(20) DEFAULT NULL,
+
+              throughout.  We also hope there are no literals with commas
+              or parentheses in.  If there are, this stuff should exception
+              out.
+              """
+              # we pull the plate name from the table name by
+              # cutting off everything after an underscore from the
+              # table name.  Let's see if we get away with this.
+              plate = re.search("`([^`]*)`", inputLine
+                ).group(1).split("_")[0]
+
+              # pull out the first declination so we know where
+              # we're looking; this is so we can fix bad plate
+              # ids (see README)
+              dec = float(
+                re.search("\([^,]*,[^,]*,[^,]*,[^,]*,[^,]*,([^,]*)",
+                  inputLine).group(1))
+              if plate in DECRANGES_FOR_PLATEID_DEDUP:
+                lowerDec, upperDec = DECRANGES_FOR_PLATEID_DEDUP[plate]
+                if lowerDec<dec<upperDec:
+                  plate = plate+"a"
+
+              # now strip off everything up to the first opening
+              # and after the last closing paren -- after that, we
+              # get the records by simple splitting
+              inputLine = inputLine[
+                inputLine.index('('):inputLine.rindex(')')]
+              for rec in inputLine.split('),('):
+                (_, objectid, _, _, ra, dec, magb, magr, lun,
+                  redBord, snr, x, y, angle, ell, sky, fluxes, sp_class
+                  ) = [s.strip("'") for s in rec.split(",")]
+                yield locals()
           ]]></code>
         </setup>
         <code>
-          zipSource = zipfile.ZipFile(self.sourceToken, mode="r")
-          for memberName in zipSource.namelist():
-            if not memberName.endswith(".spec"):
-              continue
-
-            f = zipSource.open(memberName, "r")
-            
-            try:
-              yield parse_a_spectrum(f)
-            except Exception as exc:
-              base.ui.notifyError("Botched spectrum: %s %s %s"%(
-                self.sourceToken, memberName, exc))
-              continue
-
+          # The spectra are in one table per source plate, and
+          # the dump has the values of one such plate in one line.
+          # So, I look for such lines and then parse from there
+          with gzip.open(self.sourceToken) as f:
+            for line in f:
+              if line.startswith("INSERT INTO `fbs"):
+                for row in parseSpectraFromDump(line):
+                  yield row
         </code>
       </iterator>
 
       <rowfilter procDef="//products#define">
         <bind name="table">"\schema.spectra"</bind>
-        <bind key="accref">"\rdId/"+@spec_id</bind>
+        <bind key="accref">"\rdId/%s/%s"%(@plate, @objectid)</bind>
         <bind name="path">makeAbsoluteURL(
-          "\rdId/sdl/dlget?ID="+urllib.quote("\rdId/"+@spec_id))</bind>
+          "\rdId/sdl/dlget?ID="+urllib.quote("\rdId/%s/%s"%(
+            @plate, @objectid)))</bind>
         <bind name="mime">"application/x-votable+xml"</bind>
         <bind name="preview_mime">"image/png"</bind>
         <bind name="preview">\standardPreviewPath</bind>
@@ -395,28 +460,16 @@
 
     <make table="raw_spectra">
       <rowmaker idmaps="*">
-        <simplemaps>
-          sp_class: spectrumclass,
-          magb: magB,
-          magr: magR
-        </simplemaps>
+        <var key="flux">[float(item or 'nan')
+          for item in @fluxes.split("#")]</var>
+        <var key="ra">float(@ra)</var>
+        <var key="dec">float(@dec)</var>
 
-        <var key="ra">hmsToDeg(@raJ, ":")</var>
-        <var key="dec">dmsToDeg(@decJ, ":")</var>
-        <map key="px_length">float(@spectrumlength.split(" ")[0])</map>
+        <map key="px_length">len(@flux)</map>
         <map key="pos">pgsphere.SPoint.fromDegrees(@ra, @dec)</map>
-
-        <apply name="compute_snr">
-          <code>
-            mag = float(@magB)
-            if mag>16:
-              @snr = 3
-            elif mag>14:
-              @snr = 5
-            else:
-              @snr = 100
-          </code>
-        </apply>
+        <map key="specid">@plate+"-"+@objectid[5:]</map>
+        <!-- TODO: delete fluxes too red (compare to byurakan spectra);
+          Figure out how to do actual fluxes (what's sky?) -->
       </rowmaker>
     </make>
   </data>
@@ -446,7 +499,7 @@
           accref, owner, embargo, mime, accsize,
           objectid || ' spectrum from ' || plate AS ssa_dstitle,
           NULL::TEXT AS ssa_creatorDID,
-          'ivo://\getConfig{ivoa}{authority}/~?\rdId/' || spec_id AS ssa_pubDID,
+          'ivo://\getConfig{ivoa}{authority}/~?\rdId/' || specid AS ssa_pubDID,
           NULL::TEXT AS ssa_cdate,
           '2018-09-01'::TIMESTAMP AS ssa_pdate,
           emulsion AS ssa_bandpass,
@@ -504,7 +557,7 @@
   </data>
 
   <table id="platemeta" onDisk="True" primary="plateid"
-      adql="true">
+      adql="hidden">
     <meta name="description">Metadata for the plates making up the
     Byurakan spectral surveys, obtained from the WFPDB.</meta>
 
@@ -591,11 +644,11 @@
   </data>
 
 
-  <table id="spectra" onDisk="True" adql="True">
+  <table id="spectra" onDisk="True" adql="hidden">
     <meta name="description">This table contains basic metadata as well
       as the spectra from the Digital First Byurakan Survey (DFBS).
     </meta>
-    <LOOP listItems="accref plate spec_id ra dec pos sp_class px_length
+    <LOOP listItems="accref plate specid ra dec pos sp_class px_length
         flux magb magr snr lam_min lam_max">
       <events>
         <column original="raw_spectra.\item"/>
@@ -764,7 +817,7 @@
 
     <regTest title="spectra TAP table present">
       <url parSet="TAP" QUERY="SELECT * FROM dfbsspec.spectra
-        WHERE spec_id='fbs1163-015610.24+202225.0'"
+        WHERE specid='fbs1163-015610.24+202225.0'"
         >/tap/sync</url>
       <code>
         rows = self.getVOTableRows()
@@ -780,3 +833,5 @@
   </regSuite>
 
 </resource>
+<!-- vim:et:sta:sw=2
+-->
