@@ -313,7 +313,6 @@
   <data id="import">
     <recreateAfter>make_ssa_view</recreateAfter>
     <recreateAfter>make_tap_view</recreateAfter>
-    <property key="previewDir">previews</property>
     <sources pattern="data/*.sql.gz"/>
     <!-- this parses from the SQL dump we got from Italy.  We
     	trust all the fbs_* tables have the same structure. -->
@@ -400,13 +399,14 @@
 
       <rowfilter procDef="//products#define">
         <bind name="table">"\schema.spectra"</bind>
-        <bind key="accref">"\rdId/%s/%s"%(@plate, @objectid)</bind>
+        <bind key="accref">"\rdId/%s-%s"%(@plate, @objectid[5:])</bind>
         <bind name="path">makeAbsoluteURL(
-          "\rdId/sdl/dlget?ID="+urllib.quote("\rdId/%s/%s"%(
-            @plate, @objectid)))</bind>
+          "\rdId/sdl/dlget?ID="+urllib.quote("\rdId/%s-%s"%(
+            @plate, @objectid[5:])))</bind>
         <bind name="mime">"application/x-votable+xml"</bind>
         <bind name="preview_mime">"image/png"</bind>
-        <bind name="preview">\standardPreviewPath</bind>
+        <bind name="preview">makeAbsoluteURL("\rdId/preview/qp/%s-%s"%(
+          @plate, @objectid[5:]))</bind>
         <bind name="fsize">20000</bind>
       </rowfilter>
     </embeddedGrammar>
@@ -506,7 +506,6 @@
   </coverage>
 
   <data id="make_ssa_view" auto="False">
-    <property key="previewDir">previews</property>
     <make table="ssa"/>
   </data>
 
@@ -731,6 +730,38 @@
     <ssapCore queriedTable="ssa">
       <FEED source="//ssap#hcd_condDescs"/>
     </ssapCore>
+  </service>
+
+  <service id="preview" allowed="qp">
+    <meta name="title">DFBS spectra preview maker"</meta>
+    <property name="queryField">specid</property>
+    <pythonCore>
+      <inputTable>
+        <inputKey name="specid" type="text" required="True"
+          description="ID of the spectrum to produce a preview for"/>
+      </inputTable>
+      <coreProc>
+        <setup>
+          <code>
+            from gavo.helpers.processing import SpectralPreviewMaker
+            from gavo import svcs
+          </code>
+        </setup>
+        <code>
+          with base.getTableConn() as conn:
+            res = list(conn.query("SELECT spectral, flux"
+              " FROM \schema.spectra"
+              " WHERE specid=%(specid)s",
+              inputTable.args))
+
+          if not res:
+            raise svcs.UnknownURI("No such spectrum known here")
+
+          return ("image/png", SpectralPreviewMaker.get2DPlot(
+            zip(res[0][0], res[0][1]), linear=True))
+        </code>
+      </coreProc>
+    </pythonCore>
   </service>
 
   <regSuite title="DFBS regression">
