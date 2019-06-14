@@ -252,14 +252,9 @@
         bright objects, NL if disturbers are nearby, U for objects
         unclassifiable because of lack of signal."
       verbLevel="25"/>
-    <column name="px_length" 
-      unit="pixel" ucd=""
-      tablehead="#px"
-      description="Number of pixels in the extracted spectrum"
-      verbLevel="25"/>
 
     <column name="flux" type="real[]"
-      unit="" ucd=""
+      unit="" ucd="phot.flux.density;em.wl"
       tablehead="Flux[]"
       description="Flux points of the extracted spectrum (arbitrary units)"
       verbLevel="30"/>
@@ -276,31 +271,43 @@
       verbLevel="15"/>
     
     <column name="snr"
-      unit="" ucd=""
+      ucd="stat.snr"
       tablehead="SNR"
       description="Estimated signal-to-noise ratio for this spectrum."
       verbLevel="25"/>
     <column name="lam_min"
-      unit="m" ucd=""
+      unit="m" ucd="stat.min;em.wl"
       tablehead="λ_min"
-      description="Minimal wavelength in this spectrum."
-      verbLevel="15"/>
-    <column name="lam_max"
-      unit="m" ucd=""
-      tablehead="λ_max"
-      description="Maximal wavelength in this spectrum."
+      description="Minimal wavelength in this spectrum (the longest 
+        wavelength is always 690 nm)."
       verbLevel="15"/>
 
-    <column name="ell"
-      unit="???"
-      tablehead="???"
-      description="???"
-      verbLevel="25"/>
     <column name="sky"
-      unit="???"
-      tablehead="???"
-      description="???"
+      ucd="instr.skyLevel"
+      tablehead="Sky"
+      description="Sky background estimation from the scan (uncalibrated)."
       verbLevel="25"/>
+    <column name="px_x"
+      unit="pixel" ucd="pos.cartesian.x;instr"
+      tablehead="X"
+      description="Location of the spectrum on the plate scan, x coordinate."
+      verbLevel="25"/>
+    <column name="px_y"
+      unit="pixel" ucd="pos.cartesian.y;instr"
+      tablehead="Y"
+      description="Location of the spectrum on the plate scan, y coordinate."
+      verbLevel="25"/>
+    <column name="pos_ang"
+      unit="deg" ucd="pos.posAng"
+      tablehead="P.A."
+      description="Position angle of the spectrum on the plate, north over
+        east."
+      verbLevel="25"/>
+    <column name="px_length"
+      tablehead="#"
+      description="Number of points in this spectrum"
+      verbLevel="25"/>
+
   </table>
 
   <data id="import">
@@ -323,60 +330,6 @@
               "fbs0326": (25, 35),
               "fbs0449": (25, 35),
               "fbs0996": (42, 54)}
-
-            # cut off everything redward of this (as it necessarily
-            # is noise)
-            LAMBDA_CUTOFF = float("690")*1e-9
-
-            def parse_a_spectrum(src_f):
-              """returns a rawdict from an open file.
-             
-              TODO: Remove this function; it's no longer used.
-              I just need to be reminded of the LAMBDA_CUTOFF thing.
-
-              This can raise all kinds of exceptions depending on
-              the way in which the source is broken.
-              """
-              lam_max, lam_min = 0, 1e30
-              flux = []
-
-              res = {}
-              for ln in src_f:
-                if ln.startswith("# "):
-                  if not ":" in ln:
-                    continue
-                  key, value = ln[1:].strip().split(":", 1)
-                  res[re.sub("[^A-Za-z]+", "", key)] = value.strip()
-                elif ln.startswith("##"):
-                  pass
-                else:
-                  px, flx, lam = ln.split()
-                  lam = float(lam)*1e-9
-                  # discard everything longward of 690 nm, as it's certainly
-                  # not physical.
-                  if lam>LAMBDA_CUTOFF:
-                    continue
-                  lam_max = max(lam_max, lam)
-                  lam_min = min(lam_min, lam)
-                  flux.append(float(flx))
-
-              if res["plate"] in DECRANGES_FOR_PLATEID_DEDUP:
-                dec = dmsToDeg(decJ, ":")
-                lowerDec, upperDec = DECRANGES_FOR_PLATEID_DEDUP[res["plate"]]
-                if lowerDec<dec<upperDec:
-                  res["plate"] = res["plate"]+"a"
-
-              res["lam_max"] = lam_max
-              res["lam_min"] = lam_min
-              res["flux"] = numpy.array(flux)
-              res["specid"] = res["plate"] + "-" + res["objectid"][5:]
-              res["px_length"] = len(flux)
-
-              if lam_max!=LAMBDA_CUTOFF:
-                raise base.ReportableError("Spectrum %s, as it"
-                  " apparently starts blueward of 690 nm"%res["specid"])
-
-              return res
 
             def parseSpectraFromDump(inputLine):
               """this assumes the schema
@@ -428,7 +381,7 @@
                 inputLine.index('('):inputLine.rindex(')')]
               for rec in inputLine.split('),('):
                 (_, objectid, _, _, ra, dec, magb, magr, lun,
-                  redBord, snr, x, y, angle, ell, sky, fluxes, sp_class
+                  redBord, snr, px_x, px_y, pos_ang, ell, sky, fluxes, sp_class
                   ) = [s.strip("'") for s in rec.split(",")]
                 yield locals()
           ]]></code>
@@ -460,16 +413,17 @@
 
     <make table="raw_spectra">
       <rowmaker idmaps="*">
+        <!-- redBord is an index to where the flux spectrum starts.
+        redBord+2 is the 690 nm bin -->
         <var key="flux">[float(item or 'nan')
-          for item in @fluxes.split("#")]</var>
+          for item in @fluxes.split("#")[int(@redBord)+2:]]</var>
         <var key="ra">float(@ra)</var>
         <var key="dec">float(@dec)</var>
 
-        <map key="px_length">len(@flux)</map>
         <map key="pos">pgsphere.SPoint.fromDegrees(@ra, @dec)</map>
         <map key="specid">@plate+"-"+@objectid[5:]</map>
-        <!-- TODO: delete fluxes too red (compare to byurakan spectra);
-          Figure out how to do actual fluxes (what's sky?) -->
+
+        <map key="px_length">len(@flux)</map>
       </rowmaker>
     </make>
   </data>
@@ -513,10 +467,10 @@
           2/3600.::REAL AS ssa_aperture,
           epoch AS ssa_dateObs, 
           exptime AS ssa_timeExt,
-          (lam_min+lam_max)/2. AS ssa_specmid,
-          lam_max-lam_min AS ssa_specext,
+          (lam_min+690e-9)/2. AS ssa_specmid,
+          690e-9-lam_min AS ssa_specext,
           lam_min AS ssa_specstart,
-          lam_max AS ssa_specend,
+          690e-9 AS ssa_specend,
           px_length::INTEGER AS ssa_length,
           'spectrum'::TEXT AS ssa_dstype,
           'BAO'::TEXT AS ssa_publisher,
@@ -649,7 +603,7 @@
       as the spectra from the Digital First Byurakan Survey (DFBS).
     </meta>
     <LOOP listItems="accref plate specid ra dec pos sp_class px_length
-        flux magb magr snr lam_min lam_max">
+        flux magb magr snr lam_min">
       <events>
         <column original="raw_spectra.\item"/>
       </events>
