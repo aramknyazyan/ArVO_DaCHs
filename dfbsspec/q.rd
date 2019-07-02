@@ -416,7 +416,7 @@
         <!-- redBord is an index to where the flux spectrum starts.
         redBord+2 is the 690 nm bin -->
         <var key="flux">[float(item or 'nan')
-          for item in @fluxes.split("#")[int(@redBord)+2:]]</var>
+          for item in @fluxes.split("#")[int(@redBord)+1:]]</var>
         <var key="ra">float(@ra)</var>
         <var key="dec">float(@dec)</var>
 
