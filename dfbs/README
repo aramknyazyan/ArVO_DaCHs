@@ -1,23 +1,31 @@
-These are the original full plate scans of the DFBS.  Aram got them in
-2018 from disks stored at the Byurakan archive.
+IMPORTANT: q.rd, README, and bin/ are currently *both* in the GAVO SVN and at
+https://github.com/aramknyazyan/ArVO_DaCHs.git It is currently being
+synchronised between the two (if at all) by hand.
 
-Temporary status: There's too many problems with bad header cards and
-the ancient WCS.  Research ways to fix both issues.
+These are the full plate scans of the DFBS.  They were scraped off a
+machine in Trieste that, in turn, was a clone of the machine on which
+DFBS serialisation was done.
+
+The original files had various problems; in particular the astrometric
+calibration still DSS-style, and many headers had non-ASCII in them.
+The local bin/addstandardheaders.py fixes that as far as possible, also
+adding metadata from WFPDB.
+
+Quite a few FITSes are still broken:
+
+* fbs0584, fbs0587, fbs1165, fbs1187, fbs1824M didn't receive a 
+	header, it seems.  Recovering them might be possible if it were 
+	found worthwhile.
+* fbs0324, fbs1825M, fbs1828M, fbs1830M, fbs1831M, fbs1832M, fbs1834M,
+  fbs1834_, fbs1835M, fbs1836M, fbs1837M, fbs1838M, fbs1839M, fbs1840M,
+  fbs1841M, fbs1842M, fbs1875, fbs1882, fbs1883, fbs2064, fbs2231, fbs2234,
+  fbs2235, fbs2237, fbs2242, fbs2243, fbs2244, fbs2247 are not in WFPDB.
+  If they were entered there, they'd probably just work.
+* fbsanon+38_cor -- who knows?
+
+Anyway, a trigger in the q.rd only accepts plates with updated headers.
+It'll know them by the presence of the WFPDB-ID header.
 
 
-Open questions:
-
-(1) The header for FBS1325_COR.FITS contains ac02 in the header (at
-offsets ~000004a0 and ~000004f0).  That makes them invalid -- where
-do they come from?
-
-(2) How do we get basic metadata on these (observation date, exposure
-time, emulsion used, ...)?
-
-(3) How do we find out what field was observed on a given plate (ideally
-without going through the astrometrical reduction).
-
-(4) It would be really great if new-style WCS headers could be attached
-to the scans (research standard tools to turn DSS-style WCS into
-standard FITS-WCS.
-
+The test set is fbs2008_cor.fits; to allow space-saving cutouts, tests
+should only look at the central 0.1 degrees.

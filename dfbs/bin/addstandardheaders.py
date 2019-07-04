@@ -2,6 +2,9 @@
 This script will update the headers of the FBS plate scans with
 according to the Tuvikene et al plate archive standard,
 https://www.plate-archive.org/wiki/index.php/FITS_header_format
+
+It will also, using astrometry.net, replace the ancient DSS calibration
+with something more modern.
 """
 
 import warnings
@@ -23,6 +26,10 @@ from gavo.base import coords
 from gavo.utils import fitstools
 from gavo.utils import pyfits
 from gavo.helpers import fitstricks
+
+ARCSEC = numpy.pi/180./3600
+DEG = numpy.pi/180
+
 
 _KEYS_PROBABLY_BROKEN = set([
     "OBJCTX", "OBJCTY"])
@@ -80,6 +87,75 @@ _DSS_CALIBRATION_KEYS = [
     "PLTLABEL"]
 
 
+class DSSCalib(object):
+    """a wrapper for a Digital Sky Survey-type astrometric calibration.
+
+    This is according to an explanation given by Francois Bonnarel
+    in a mail to Markus on 2019-05-06.
+    """
+    def __init__(self, fitshdr):
+        self.aCoeffs = [fitshdr["AMDX%s"%i]
+            for i in range(1,14)]
+        self.bCoeffs = [fitshdr["AMDY%s"%i]
+            for i in range(1,14)]
+        self.alpha0 = api.hmsToDeg("%s %s %s"%(
+            fitshdr["PLTRAH"], fitshdr["PLTRAM"], fitshdr["PLTRAS"])
+            )*DEG
+        self.delta0 = api.dmsToDeg("%s%s %s %s"%(
+            fitshdr["PLTDECSN"], fitshdr["PLTDECD"], 
+            fitshdr["PLTDECM"], fitshdr["PLTDECS"]))*DEG
+        self.centerx = fitshdr["PPO3"]
+        self.centery = fitshdr["PPO4"]
+        self.px = fitshdr["XPIXELSZ"]
+        self.py = fitshdr["YPIXELSZ"]
+        # PPO03/PPO04 are always zero in our dataset, which yields
+        # calibrations off by half the frame.
+        # If we compute the center artificially, the calibrations
+        # seem right.  Let's not think to hard and just do it.
+        self.centerx = fitshdr["NAXIS1"]/2.*self.px
+        self.centery = fitshdr["NAXIS2"]/2.*self.py
+    
+    def pix_to_sky(self, x_px, y_px):
+        A, B = self.aCoeffs, self.bCoeffs
+        x = (self.centerx-(x_px+0.5)*self.px)/1000.
+        y = ((y_px+0.5)*self.py-self.centery)/1000.
+        x_as = (A[0]*x
+            +A[1]*y
+            +A[2]
+            +A[3]*x*x
+            +A[4]*x*y
+            +A[5]*y*y
+            +A[6]*(x*x+y*y)
+            +A[7]*x*x*x
+            +A[8]*x*x*y
+            +A[9]*x*y*y
+            +A[10]*y*y*y
+            +A[11]*x*(x*x+y*y)
+            +A[12]*x*(x*x+y*y)*(x*x+y*y))
+        y_as = (B[0]*y
+            +B[1]*x
+            +B[2]
+            +B[3]*y*y
+            +B[4]*y*x
+            +B[5]*x*x
+            +B[6]*(y*y+x*x)
+            +B[7]*y*y*y
+            +B[8]*y*y*x
+            +B[9]*y*x*x
+            +B[10]*x*x*x
+            +B[11]*y*(y*y+x*x)
+            +B[12]*y*(y*y+x*x)*(y*y+x*x))
+
+        # deproject, assuming projection around the center
+        xi, eta = x_as*ARCSEC, y_as*ARCSEC
+
+        ra = numpy.arctan(xi/numpy.cos(self.delta0
+            )/(1-eta*numpy.tan(self.delta0)))+self.alpha0
+        dec = numpy.arctan(((eta+numpy.tan(self.delta0))
+                *numpy.cos(ra-self.alpha0))/(1-eta*numpy.tan(self.delta0)))
+        return ra/DEG, dec/DEG
+
+
 class PAHeaderAdder(api.HeaderProcessor):
     # PA as in "Plate Archive"
 
@@ -119,11 +195,12 @@ class PAHeaderAdder(api.HeaderProcessor):
     def getPrimaryHeader(self, srcName):
         # Some FBS headers have bad non-ASCII in them that confuses pyfits
         # so badly that nothing works.  We have to manually defuse things.
-        if os.path.getsize(srcName)==0:
-          raise base.SkipThis()
         with open(srcName) as f:
             hdu = fitstools._TempHDU()
-            rawBytes = fitstools.readHeaderBytes(f, 40).replace("\001", " ")
+            rawBytes = fitstools.readHeaderBytes(f, 40
+                ).replace("\001", " "
+                ).replace("\xac", " "
+                ).replace("\x02", " ")
             hdu._raw = rawBytes
 
         hdu._extver = 1  # We only do PRIMARY
@@ -178,7 +255,6 @@ class PAHeaderAdder(api.HeaderProcessor):
         for kw_name in _DSS_CALIBRATION_KEYS:
             if kw_name in hdr:
                 del hdr[kw_name]
-#        TODO: Add history
 
         kws["NAXIS1"], kws["NAXIS2"] = hdr["NAXIS1"], hdr["NAXIS2"]
         plateCenter = coords.getCenterFromWCSFields(kws)
@@ -187,8 +263,10 @@ class PAHeaderAdder(api.HeaderProcessor):
             fitstricks.WFPDB_TEMPLATE,
             originalHeader=hdr,
             DATEORIG=dateOfObs.date().isoformat(),
-            RA_ORIG=utils.degToHms(meta["raj2000"], ":"),
-            DEC_ORIG=utils.degToDms(meta["dej2000"], ":"),
+            RA_ORIG=utils.degToHms(meta["raj2000"], ":") 
+                if meta["raj2000"] else None,
+            DEC_ORIG=utils.degToDms(meta["dej2000"], ":")
+                if meta["dej2000"] else None,
             OBJECT=meta["object"],
             OBJTYPE=meta["object_type"],
             NUMEXP=1,
@@ -196,11 +274,10 @@ class PAHeaderAdder(api.HeaderProcessor):
             SITELONG=44.2917,
             SITELAT=40.1455,
             SITEELEV=1490,
-            TELESCOP=hdr["TELESCOP"],
+            TELESCOP="Byurakan 1 m Schmidt",
             TELAPER=1,
             TELFOC=2.13,
             TELSCALE=96.8,
-            INSTRUME=hdr["INSTRUME"],
             DETNAM="Photographic Plate",
             METHOD=meta["method"],
             PRISMANG='1:30',
@@ -235,7 +312,11 @@ class PAHeaderAdder(api.HeaderProcessor):
             ORIGIN="Byurakan",
 
             **kws)
-            
+        
+        hdr.add_history("Astrometric calibration translated from DSS"
+            " to proper WCS by addstandardheaders.py,"
+            " gavo@ari.uni-heidelberg.de")
+
         return hdr
 
     def compute_WCS(self, hdr, subsample=200):
@@ -250,30 +331,35 @@ class PAHeaderAdder(api.HeaderProcessor):
         mesh = numpy.array([(x,y)
                 for x in range(1, ax1, subsample)
                 for y in range(1, ax2, subsample)])
-        trafo = wcs.WCS(hdr)
-        transformed = trafo.all_pix2world(mesh, 1)
+        calib = DSSCalib(hdr)
+        t_alpha, t_delta = calib.pix_to_sky(mesh[:,0], mesh[:,1])
 
-        # Make a FITS input for fit-wcs from that data
-        pyfits.HDUList([
-            pyfits.PrimaryHDU(),
-            pyfits.BinTableHDU.from_columns(
-                pyfits.ColDefs([
-                    pyfits.Column(name="FIELD_X", format='D', array=mesh[:,0]),
-                    pyfits.Column(name="FIELD_Y", format='D', array=mesh[:,1]),
-                    pyfits.Column(name="INDEX_RA", format='D', 
-                        array=transformed[:,0]),
-                    pyfits.Column(name="INDEX_DEC", format='D', 
-                        array=transformed[:,1]),
-                ]))]
-            ).writeto("correspondence.fits", clobber=1)
-        
-        # run fits-wcs and slurp in the headers it generates
-        subprocess.check_call(["fit-wcs", 
-            "-W", str(hdr["NAXIS1"]), "-H", str(hdr["NAXIS2"]),
-            '-s2',
-            "-c", "correspondence.fits", "-o", "newcalib.fits"])
-        with open("newcalib.fits", "rb") as f:
-            newHeader = fitstools.readPrimaryHeaderQuick(f)
+        try:
+            # Make a FITS input for astrometry.net's fit-wcs from that data
+            pyfits.HDUList([
+                pyfits.PrimaryHDU(),
+                pyfits.BinTableHDU.from_columns(
+                    pyfits.ColDefs([
+                        pyfits.Column(name="FIELD_X", format='D', array=mesh[:,0]),
+                        pyfits.Column(name="FIELD_Y", format='D', array=mesh[:,1]),
+                        pyfits.Column(name="INDEX_RA", format='D', 
+                            array=t_alpha),
+                        pyfits.Column(name="INDEX_DEC", format='D', 
+                            array=t_delta),
+                    ]))]
+                ).writeto("correspondence.fits", clobber=1)
+            
+            # run fits-wcs and slurp in the headers it generates
+            subprocess.check_call(["fit-wcs", 
+                "-W", str(hdr["NAXIS1"]), "-H", str(hdr["NAXIS2"]),
+                '-s2',
+                "-c", "correspondence.fits", "-o", "newcalib.fits"])
+            with open("newcalib.fits", "rb") as f:
+                newHeader = fitstools.readPrimaryHeaderQuick(f)
+        finally:
+            os.unlink("correspondence.fits")
+            if os.path.exists("newcalib.fits"):
+                os.unlink("newcalib.fits")
         
         return newHeader
 

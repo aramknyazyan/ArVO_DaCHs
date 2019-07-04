@@ -7,7 +7,8 @@
     The First Byurakan Survey (FBS) is the largest and the first systematic
     objective prism survey of the extragalactic sky. It covers 17,000 sq.deg.
     in the Northern sky together with a high galactic latitudes region in the
-    Southern sky.   This service serves the scanned objective prism images.
+    Southern sky.   This service serves the scanned objective prism images
+    and offers SODA-based cutouts.
   </meta>
 
   <meta name="subject">objective prism</meta>
@@ -58,15 +59,17 @@
   </coverage>
 
   <data id="import">
-    <sources recurse="True">
+    <sources>
       <pattern>data/*.fits</pattern>
-      <pattern>data/*.FITS</pattern>
     </sources>
 
     <fitsProdGrammar>
       <rowfilter procDef="//products#define">
         <bind key="table">"\schema.data"</bind>
       </rowfilter>
+      <ignoreOn>
+        <keyMissing key="WFPDB_ID"/>
+      </ignoreOn>
     </fitsProdGrammar>
 
     <make table="main">
@@ -146,7 +149,9 @@
                 {"plate": pubDID[6:]}))
             if not res:
               raise base.NotFoundError("plate", pubDID[6:], "FBS plates")
-            return getFITSDescriptor(getStandardPubDID(res[0][0]),
+            pubDID = getStandardPubDID(res[0][0])
+
+          return getFITSDescriptor(pubDID,
               accrefPrefix, cls=descClass, qnd=qnd)
         </code>
       </descriptorGenerator>
@@ -159,39 +164,47 @@
       for more info on these. -->
 
     <regTest title="dfbs SIAP serves some data">
-      <url POS="28.394,19.222" SIZE="0.1,0.1"
+      <url POS="248.5,11.5" SIZE="0.1,0.1"
         >i/siap.xml</url>
       <code>
-        self.assertHasStrings(
-          "%some characteristic string returned by the query%",
-          "%another characteristic string returned by the query%")
+        rows = self.getVOTableRows()
+        for row in rows:
+          if row["plate"]=='fbs2008':
+            break
+        else:
+          raise AssertionError("fbs2008 not in SIAP result")
+        
+        self.assertEqual(row["exptime"], 1200.)
+        self.assertEqual(row["bandpassId"], "IIIaF")
+        self.assertEqual(row["imageTitle"],  'Byurakan fbs2008 (IIIaF)')
+        self.assertEqual(int(row["centerDelta"]*10), 116)
       </code>
     </regTest>
 
     <regTest title="dfbs datalink meta returns links">
-      <url ID="ivo://org.gavo.dc/~?dfbs/data/FBS0900_COR.FITS">dl/dlmeta</url>
+      <url ID="dfbs/data/fbs2008_cor.fits">dl/dlmeta</url>
       <code>
         bySemantics = dict((row["semantics"], row["access_url"])
           for row in self.getVOTableRows())
         self.assertTrue(
           bySemantics["#preview"].endswith(
-            "/getproduct/dfbs/data/FBS0900_COR.FITS?preview=True"))
+            "/getproduct/dfbs/data/fbs2008_cor.fits?preview=True"))
         self.assertTrue(
           bySemantics["#this"].endswith(
-            "/getproduct/dfbs/data/FBS0900_COR.FITS"))
+            "/getproduct/dfbs/data/fbs2008_cor.fits"))
       </code>
     </regTest>
 
     <regTest title="fbs datalink cutout works with magic plate id as well.">
-      <url ID="plate/fbs0900"
-        CIRCLE="335.2 39.95 0.02">dl/dlget</url>
+      <url ID="plate/fbs2008"
+        CIRCLE="248.5 11.5 0.02">dl/dlget</url>
       <code>
         self.assertHasStrings("NAXIS1  =                   94")
         first_data_block = 3
         # this test needs updating when the calibration is fixed
         self.assertEqual(
           self.data[2880*first_data_block:2880*first_data_block+10],
-          '\\x0e\\xea\\x0e\\xc2\\x0e\\x05\\r\\xc3\\x0f"')
+          "'\\xbe'\\xe0'\\xa7(\\x1d(\\x99")
       </code>
     </regTest>
   </regSuite>

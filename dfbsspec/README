@@ -1,3 +1,8 @@
+IMPORTANT: q.rd and README are currently *both* in the GAVO SVN and at
+https://github.com/aramknyazyan/ArVO_DaCHs.git It is currently being synchronised
+between the two (if at all) by hand.
+
+
 This is a service publishing the spectra from the first Byurakan
 spectral survey.
 
@@ -10,7 +15,7 @@ zcat byurakan-spettri.sql.gz | head -490 | tail -60 | gzip > sample.sql.gz
 
 TODO
 
-* Can we add error estimates (Areg's ideas: use background level,
+* Can we add error estimates? (Areg's ideas: use background level,
   perhaps measured by limiting magnitude)
 * Do we want x, y, and angle in the database table?  If so, what about
   units, orientation, etc?

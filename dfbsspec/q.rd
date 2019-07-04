@@ -147,7 +147,7 @@
 
     .. _SIMBAD object types: http://simbad.u-strasbg.fr/simbad/sim-display?data=otypes
 
-    With the resulting table, to do this service and execute a query like::
+    With the resulting table, go do this service and execute a query like::
 
       SELECT
       specid, spectral, flux
@@ -416,10 +416,18 @@
         <!-- redBord is an index to where the flux spectrum starts.
         redBord+2 is the 690 nm bin -->
         <var key="flux">[float(item or 'nan')
-          for item in @fluxes.split("#")[int(@redBord)+2:]]</var>
+          for item in @fluxes.split("#")[int(@redBord)+1:]]</var>
         <var key="ra">float(@ra)</var>
         <var key="dec">float(@dec)</var>
 
+        <apply>
+          <setup>
+            <par name="bins">[\spectralBins]</par>
+          </setup>
+          <code>
+            @lam_min = bins[len(@flux)-1]
+          </code>
+        </apply>
         <map key="pos">pgsphere.SPoint.fromDegrees(@ra, @dec)</map>
         <map key="specid">@plate+"-"+@objectid[5:]</map>
 
@@ -766,53 +774,53 @@
 
   <regSuite title="DFBS regression">
     <regTest title="Spectra metadata plausible via SSA">
-      <url REQUEST="queryData" POS="29.0426958,20.373625"
+      <url REQUEST="queryData" POS="14.071201,44.899395"
         SIZE="0.001">getssa/ssap.xml</url>
       <code>
         row = self.getFirstVOTableRow()
         self.assertEqual(row['ssa_location'].asSODA(),	
-          '29.0426958306 20.373624999')
+          '14.0712016669 44.899394444')
         self.assertEqual(row["ssa_dstitle"], 
-          'DFBSJ015610.24+202225.0 spectrum from fbs1163')
-        self.assertEqual(row["ssa_bandpass"], "IIF")
-        self.assertEqual(row["ssa_length"], 109)
-        self.assertAlmostEqual(row["ssa_specstart"], 3.206e-07)
-        self.assertAlmostEqual(row["ssa_dateObs"], 42332.000, places=3)
+          'DFBSJ140416.32+445357.8 spectrum from fbs0017')
+        self.assertEqual(row["ssa_bandpass"], "IIAF bkd")
+        self.assertEqual(row["ssa_length"], 112)
+        self.assertAlmostEqual(row["ssa_specstart"], 3.316E-7)
+        self.assertAlmostEqual(row["ssa_dateObs"], 40407, places=5)
       </code>
     </regTest>
 
     <regTest title="DFBS previews present">
-      <url>/getproduct/dfbsspec/q/fbs1163-015613.29+201136.2?preview=True</url>
+      <url httpHonorRedirects="True">/getproduct/dfbsspec/q/fbs0017-141024.11+445238.4?preview=True</url>
       <code>
         self.assertHasStrings("PNG", "IDATx")
       </code>
     </regTest>
 
     <regTest title="Datalink dataset generation works">
-      <url ID="ivo://byu.arvo/~?dfbsspec/q/fbs1163-015613.29+201136.2"
+      <url ID="dfbsspec/q/fbs0017-140416.32+445357.8"
         >sdl/dlget</url>
       <code>
         self.assertHasStrings('utype="spec:Spectrum"', 'name="citation"',
           'value="UNCALIBRATED"')
         rows = self.getVOTableRows()
-        self.assertAlmostEqual(rows[-1]["spectral"], 3.214e-07)
-        self.assertAlmostEqual(rows[-1]["flux"], 0.03)
+        self.assertAlmostEqual(rows[-1]["spectral"], 3.316e-07)
+        self.assertAlmostEqual(rows[-1]["flux"], -5.02)
       </code>
     </regTest>
 
     <regTest title="spectra TAP table present">
       <url parSet="TAP" QUERY="SELECT * FROM dfbsspec.spectra
-        WHERE specid='fbs1163-015610.24+202225.0'"
+        WHERE specid='fbs0018-144128.14+453624.1'"
         >/tap/sync</url>
       <code>
         rows = self.getVOTableRows()
         self.assertEqual(len(rows), 1)
         row = rows[0]
         self.assertAlmostEqual(row["lam_min"],  3.2060000e-07)
-        self.assertAlmostEqual(row["dec"],  20.373625)
-        self.assertEqual(row["emulsion"],  "IIF")
-        self.assertAlmostEqual(row["flux"][2], 28.86, 5)
-        self.assertAlmostEqual(row["spectral"][0], 6.9e-7)
+        self.assertAlmostEqual(row["dec"],  45.606705555556)
+        self.assertEqual(row["emulsion"],  "IIAF bkd")
+        self.assertAlmostEqual(row["flux"][2], 16.26, 5)
+        self.assertAlmostEqual(row["spectral"][2], 6.682e-7)
       </code>
     </regTest>
   </regSuite>
